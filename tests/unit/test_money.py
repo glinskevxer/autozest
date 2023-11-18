@@ -2,7 +2,8 @@ from decimal import Decimal
 
 import pytest
 
-from autozest.money import Money, MoneyError, total
+from autozest.errors import MoneyError
+from autozest.money import Money, total
 
 
 def test_from_dollars_accepts_str_int_and_decimal() -> None:

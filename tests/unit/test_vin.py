@@ -1,8 +1,8 @@
 import pytest
 
+from autozest.errors import VinError
 from autozest.vin import (
     Vin,
-    VinError,
     check_digit,
     decode_model_year,
     is_valid,

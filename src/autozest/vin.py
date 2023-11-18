@@ -15,6 +15,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from autozest.errors import VinError
+
 VIN_LENGTH = 17
 CHECK_POSITION = 9
 YEAR_POSITION = 10
@@ -66,10 +68,6 @@ _REGIONS = (
     ("67", "Oceania"),
     ("89", "South America"),
 )
-
-
-class VinError(ValueError):
-    """Raised when a string cannot be a VIN, or fails its own check digit."""
 
 
 def normalise(text: str) -> str:

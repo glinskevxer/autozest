@@ -17,6 +17,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 
+from autozest.errors import MoneyError
+
 _CENTS = Decimal("0.01")
 _PARSE = re.compile(
     r"""^\s*
@@ -28,10 +30,6 @@ _PARSE = re.compile(
         \s*(?(paren)\))\s*$""",
     re.VERBOSE,
 )
-
-
-class MoneyError(ValueError):
-    """Raised when an amount cannot be represented or parsed."""
 
 
 @dataclass(frozen=True, order=True)

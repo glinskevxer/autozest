@@ -12,6 +12,9 @@ license = { text = "Proprietary" }
 authors = [{ name = "glinskevxer", email = "roym78109@gmail.com" }]
 dependencies = ["click==8.1.7"]
 
+[project.scripts]
+az = "autozest.cli.main:main"
+
 [project.optional-dependencies]
 dev = ["pytest==7.4.3", "pytest-cov==4.1.0"]
 

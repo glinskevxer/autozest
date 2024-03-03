@@ -15,6 +15,7 @@ from typing import Any
 import click
 
 from autozest import __version__
+from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
 from autozest.errors import AutozestError, exit_status_for
 from autozest.storage.db import integrity_problems
@@ -67,6 +68,10 @@ def doctor(ctx: Context) -> None:
     if problems:
         raise SystemExit(1)
     click.echo("no problems")
+
+
+cli.add_command(consign)
+cli.add_command(inspect)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

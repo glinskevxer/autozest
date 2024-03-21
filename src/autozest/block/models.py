@@ -164,12 +164,20 @@ class Run:
         return self.light is not Light.RED
 
     def with_status(self, status: RunStatus) -> Run:
+        return self.settled_as(status, self.hammer, self.buyer_id)
+
+    def settled_as(self, status: RunStatus, hammer: Money | None, buyer_id: str | None) -> Run:
+        """Move the run and set its outcome in the same step.
+
+        Doing it in two steps builds an intermediate that is sold with no price
+        on it, which the constructor rejects, and rightly.
+        """
         if status not in RUN_TRANSITIONS[self.status]:
             allowed = (
                 ", ".join(sorted(s.value for s in RUN_TRANSITIONS[self.status])) or "nothing"
             )
             raise StateError(f"run {self.number}", self.status.value, allowed)
-        return replace(self, status=status)
+        return replace(self, status=status, hammer=hammer, buyer_id=buyer_id)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> Run:

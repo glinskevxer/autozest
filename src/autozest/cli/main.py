@@ -15,6 +15,7 @@ from typing import Any
 import click
 
 from autozest import __version__
+from autozest.cli.block import block, sale
 from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
 from autozest.errors import AutozestError, exit_status_for
@@ -72,6 +73,8 @@ def doctor(ctx: Context) -> None:
 
 cli.add_command(consign)
 cli.add_command(inspect)
+cli.add_command(sale)
+cli.add_command(block)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

@@ -5,7 +5,7 @@ from autozest.block.models import RunStatus
 from autozest.consignment.models import ConsignmentStatus
 from autozest.errors import PolicyViolation, ValidationError
 from autozest.money import Money
-from tests.unit.block.conftest import Floor
+from tests.conftest import Floor
 
 
 @pytest.fixture()

@@ -153,3 +153,16 @@ def test_listing_sales(ring: Invoke) -> None:
     ring("sale", "create", "2024-03-12", "--title", "Second")
     output = ring("sale", "list").output
     assert output.index("Second") < output.index("First")
+
+
+def test_the_recap_prints(ring: Invoke) -> None:
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    prepared(ring, VINS[0])
+    ring("sale", "catalogue", "S-20240312", "--lane", "A")
+    ring("sale", "open", "S-20240312")
+    ring("block", "bid", "S-20240312", "A001", "d-200", "5200.00")
+    ring("block", "fall", "S-20240312", "A001")
+    output = ring("report", "recap", "S-20240312").output
+    assert "sale recap" in output
+    assert "5,200.00" in output
+    assert "sell through" in output

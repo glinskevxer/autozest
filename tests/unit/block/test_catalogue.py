@@ -9,7 +9,7 @@ from autozest.errors import PolicyViolation
 from autozest.inspection.announcements import AnnouncementCode, Light
 from autozest.inspection.damage import DamageKind, DamageLine, Panel
 from autozest.money import Money
-from tests.unit.block.conftest import VINS, Floor
+from tests.conftest import VINS, Floor
 
 
 @pytest.fixture()

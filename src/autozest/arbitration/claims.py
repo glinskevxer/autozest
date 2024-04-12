@@ -102,12 +102,22 @@ class Claim:
             raise ValidationError("a resolved claim needs a resolution")
 
     def with_status(self, status: ClaimStatus) -> Claim:
+        return self.decided_as(status, self.resolution, self.outcome)
+
+    def decided_as(
+        self, status: ClaimStatus, resolution: Resolution | None, outcome: Money | None
+    ) -> Claim:
+        """Move the claim and record its decision in the same step.
+
+        Same reason the run does it this way: moving first builds a resolved
+        claim with no resolution on it, which the constructor rejects.
+        """
         if status not in CLAIM_TRANSITIONS[self.status]:
             allowed = (
                 ", ".join(sorted(s.value for s in CLAIM_TRANSITIONS[self.status])) or "nothing"
             )
             raise StateError(f"claim {self.id}", self.status.value, allowed)
-        return replace(self, status=status)
+        return replace(self, status=status, resolution=resolution, outcome=outcome)
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> Claim:

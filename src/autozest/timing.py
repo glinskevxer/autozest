@@ -173,22 +173,31 @@ class BusinessCalendar:
         cursor = self._pull_to_open(start)
         remaining = float(hours)
         while remaining > 0:
-            close_at = datetime.combine(cursor.date(), self.closes)
+            close_at = datetime.combine(cursor.date(), self.closes, cursor.tzinfo)
             available = (close_at - cursor).total_seconds() / 3600
             if remaining <= available:
                 return cursor + timedelta(hours=remaining)
             remaining -= available
-            cursor = datetime.combine(self.next_business_day(cursor.date()), self.opens)
+            cursor = datetime.combine(
+                self.next_business_day(cursor.date()), self.opens, cursor.tzinfo
+            )
         return cursor
 
     def _pull_to_open(self, moment: datetime) -> datetime:
+        """Move a moment forward to the next time the doors are open.
+
+        The result keeps whatever timezone it came in with. Everything stored
+        in this system is timezone aware and everything a test writes by hand
+        is not, and a deadline that silently changes which of those it is makes
+        the comparison at the other end raise.
+        """
         day = moment.date()
         if self.is_business_day(day):
             if moment.time() < self.opens:
-                return datetime.combine(day, self.opens)
+                return datetime.combine(day, self.opens, moment.tzinfo)
             if moment.time() < self.closes:
                 return moment
-        return datetime.combine(self.next_business_day(day), self.opens)
+        return datetime.combine(self.next_business_day(day), self.opens, moment.tzinfo)
 
     def deadline(self, start: datetime, window: Window) -> datetime:
         """Apply a window to a starting moment."""
@@ -196,7 +205,7 @@ class BusinessCalendar:
             return start + timedelta(days=window.amount)
         if window.unit is WindowUnit.BUSINESS_DAYS:
             landed = self.add_business_days(start.date(), window.amount)
-            return datetime.combine(landed, self.closes)
+            return datetime.combine(landed, self.closes, start.tzinfo)
         return self.add_business_hours(start, window.amount)
 
     def has_expired(self, start: datetime, window: Window, now: datetime) -> bool:

@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
 import pytest
 
@@ -158,3 +158,21 @@ def test_observed_holidays_merges_and_sorts_the_years() -> None:
     assert days == sorted(days)
     assert date(2024, 12, 25) in days
     assert date(2025, 1, 1) in days
+
+
+def test_a_deadline_keeps_the_timezone_it_was_given() -> None:
+    aware = datetime(2024, 3, 12, 21, 5, tzinfo=UTC)
+    for window in (
+        Window(2, WindowUnit.BUSINESS_DAYS),
+        Window(48, WindowUnit.BUSINESS_HOURS),
+        Window(3, WindowUnit.CALENDAR_DAYS),
+    ):
+        landed = CAL.deadline(aware, window)
+        assert landed.tzinfo is not None
+        assert landed > aware
+
+
+def test_a_naive_start_still_gives_a_naive_deadline() -> None:
+    naive = datetime(2024, 3, 12, 21, 5)
+    landed = CAL.deadline(naive, Window(48, WindowUnit.BUSINESS_HOURS))
+    assert landed.tzinfo is None

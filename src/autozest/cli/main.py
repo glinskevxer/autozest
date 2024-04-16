@@ -15,6 +15,7 @@ from typing import Any
 import click
 
 from autozest import __version__
+from autozest.cli.arb import arb
 from autozest.cli.block import block, sale
 from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
@@ -77,6 +78,7 @@ cli.add_command(inspect)
 cli.add_command(sale)
 cli.add_command(block)
 cli.add_command(report)
+cli.add_command(arb)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

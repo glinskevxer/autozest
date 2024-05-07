@@ -20,6 +20,7 @@ from autozest.cli.block import block, sale
 from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
 from autozest.cli.report import report
+from autozest.cli.title import title
 from autozest.errors import AutozestError, exit_status_for
 from autozest.storage.db import integrity_problems
 from autozest.storage.migrator import current_version, load_migrations, pending
@@ -79,6 +80,7 @@ cli.add_command(sale)
 cli.add_command(block)
 cli.add_command(report)
 cli.add_command(arb)
+cli.add_command(title)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

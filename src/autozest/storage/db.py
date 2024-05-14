@@ -21,12 +21,19 @@ from autozest.errors import ConfigError, Conflict
 #: How long a writer waits for the lock before giving up, in milliseconds.
 BUSY_TIMEOUT_MS = 5_000
 
+#: Applied on every connection. These are per connection settings and are not
+#: remembered in the file.
 PRAGMAS = (
     "PRAGMA foreign_keys = ON",
-    "PRAGMA journal_mode = WAL",
     "PRAGMA synchronous = NORMAL",
     f"PRAGMA busy_timeout = {BUSY_TIMEOUT_MS}",
 )
+
+#: The journal mode is a property of the file, not of the connection, so it is
+#: set once when the file is first opened and read back cheaply after that.
+#: Setting it on every connect costs a write and a checkpoint, which is most of
+#: the cost of opening a database that is already in the mode we want.
+JOURNAL_MODE = "wal"
 
 
 def _row_to_dict(cursor: sqlite3.Cursor, row: tuple[Any, ...]) -> dict[str, Any]:
@@ -51,7 +58,20 @@ def connect(path: Path | str, *, create: bool = True) -> sqlite3.Connection:
     conn.row_factory = _row_to_dict
     for pragma in PRAGMAS:
         conn.execute(pragma)
+    _ensure_journal_mode(conn)
     return conn
+
+
+def _ensure_journal_mode(conn: sqlite3.Connection) -> None:
+    """Put the file in WAL, unless it is already there.
+
+    An in memory database cannot be in WAL at all and says so by reporting
+    ``memory``, which is not a failure and is left alone.
+    """
+    current = conn.execute("PRAGMA journal_mode").fetchone()["journal_mode"]
+    if current in (JOURNAL_MODE, "memory"):
+        return
+    conn.execute(f"PRAGMA journal_mode = {JOURNAL_MODE}")
 
 
 def connect_memory() -> sqlite3.Connection:

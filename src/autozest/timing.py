@@ -17,6 +17,7 @@ from collections.abc import Iterable
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from enum import Enum
+from functools import lru_cache
 
 from autozest.errors import ValidationError
 
@@ -79,20 +80,33 @@ def _observed(day: date) -> date:
     return day
 
 
+@lru_cache(maxsize=64)
+def _holidays(year: int) -> frozenset[date]:
+    """The closures for one year, worked out once.
+
+    This is called for every day of every window walk, and a forty eight
+    business hour deadline over a holiday week walks a lot of days. Building
+    nine dates each time showed up as a third of the suite's runtime.
+    """
+    thanksgiving = _nth_weekday(year, 11, 3, 4)
+    return frozenset(
+        {
+            _observed(date(year, 1, 1)),
+            _nth_weekday(year, 1, 0, 3),
+            _nth_weekday(year, 2, 0, 3),
+            _nth_weekday(year, 5, 0, -1),
+            _observed(date(year, 7, 4)),
+            _nth_weekday(year, 9, 0, 1),
+            thanksgiving,
+            thanksgiving + timedelta(days=1),
+            _observed(date(year, 12, 25)),
+        }
+    )
+
+
 def holidays_for(year: int) -> set[date]:
     """The days the auction is closed, for one calendar year."""
-    thanksgiving = _nth_weekday(year, 11, 3, 4)
-    return {
-        _observed(date(year, 1, 1)),
-        _nth_weekday(year, 1, 0, 3),
-        _nth_weekday(year, 2, 0, 3),
-        _nth_weekday(year, 5, 0, -1),
-        _observed(date(year, 7, 4)),
-        _nth_weekday(year, 9, 0, 1),
-        thanksgiving,
-        thanksgiving + timedelta(days=1),
-        _observed(date(year, 12, 25)),
-    }
+    return set(_holidays(year))
 
 
 @dataclass(frozen=True)
@@ -121,7 +135,7 @@ class BusinessCalendar:
             return False
         if day.weekday() >= SATURDAY:
             return False
-        return day not in holidays_for(day.year)
+        return day not in _holidays(day.year)
 
     def next_business_day(self, day: date) -> date:
         cursor = day + timedelta(days=1)

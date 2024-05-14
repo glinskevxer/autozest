@@ -176,3 +176,19 @@ def test_a_naive_start_still_gives_a_naive_deadline() -> None:
     naive = datetime(2024, 3, 12, 21, 5)
     landed = CAL.deadline(naive, Window(48, WindowUnit.BUSINESS_HOURS))
     assert landed.tzinfo is None
+
+
+def test_the_holiday_set_is_the_same_object_shape_every_time() -> None:
+    first = holidays_for(2024)
+    second = holidays_for(2024)
+    assert first == second
+    assert first is not second
+    first.add(date(2024, 6, 1))
+    assert date(2024, 6, 1) not in holidays_for(2024)
+
+
+def test_a_long_walk_over_several_years_still_lands() -> None:
+    start = datetime(2024, 12, 20, 16, 0)
+    landed = CAL.add_business_hours(start, 200)
+    assert landed.year == 2025
+    assert CAL.is_business_day(landed.date())

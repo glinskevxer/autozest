@@ -135,3 +135,15 @@ def test_split_puts_the_odd_cents_on_the_earlier_parts() -> None:
 
 def test_total_of_nothing_is_zero() -> None:
     assert total([]) == Money.zero()
+
+
+def test_an_amount_goes_into_an_f_string_with_an_alignment() -> None:
+    amount = Money.parse("12350.00")
+    assert f"{amount:>12}" == "   12,350.00"
+    assert f"{amount:<12}|" == "12,350.00   |"
+    assert f"{amount}" == "12,350.00"
+
+
+def test_a_numeric_format_spec_is_refused_rather_than_guessed_at() -> None:
+    with pytest.raises(MoneyError, match="number format"):
+        f"{Money.parse('12350.00'):.2f}"

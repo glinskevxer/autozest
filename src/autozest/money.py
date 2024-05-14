@@ -95,6 +95,19 @@ class Money:
     def __repr__(self) -> str:
         return f"Money.parse('{self}')"
 
+    def __format__(self, spec: str) -> str:
+        """Let an amount go straight into an f-string with an alignment.
+
+        Without this ``f"{amount:>12}"`` raises, which is exactly the shape
+        every report line wants and exactly the shape nobody tests until the
+        report runs. The spec is applied to the rendered text, so the width
+        and fill work and a numeric spec such as ``.2f`` is refused rather
+        than quietly producing something wrong.
+        """
+        if spec and spec[-1] in "bcdeEfFgGnosxX%":
+            raise MoneyError(f"{spec!r} is a number format, an amount is text here")
+        return format(str(self), spec)
+
     def __add__(self, other: Money) -> Money:
         if not isinstance(other, Money):
             return NotImplemented

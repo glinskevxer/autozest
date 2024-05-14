@@ -123,3 +123,27 @@ def test_integrity_reports_orphans_left_by_a_disabled_key_check(
     problems = integrity_problems(conn)
     assert len(problems) == 1
     assert "foreign key violation in run" in problems[0]
+
+
+def test_a_file_database_ends_up_in_wal(tmp_path: Path) -> None:
+    target = tmp_path / "sale.sqlite3"
+    first = connect(target)
+    assert first.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "wal"
+    first.close()
+    second = connect(target, create=False)
+    assert second.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "wal"
+    second.close()
+
+
+def test_an_in_memory_database_is_left_in_its_own_mode() -> None:
+    conn = connect_memory()
+    assert conn.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "memory"
+
+
+def test_the_per_connection_pragmas_are_applied_every_time(tmp_path: Path) -> None:
+    target = tmp_path / "sale.sqlite3"
+    connect(target).close()
+    conn = connect(target, create=False)
+    assert foreign_keys_are_on(conn)
+    assert conn.execute("PRAGMA busy_timeout").fetchone()["timeout"] > 0
+    conn.close()

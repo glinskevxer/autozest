@@ -133,3 +133,24 @@ def test_balances_list_both_sides(office: Invoke) -> None:
     assert "d-200" in output
     assert "d-100" in output
     assert "2 accounts" in output
+
+
+def test_exporting_the_sold_list_to_stdout(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    output = office("report", "export", "sold", "--sale", "S-20240312").output
+    assert output.startswith("sale,run,vin")
+    assert "8200.00" in output
+
+
+def test_exporting_the_ledger_to_a_file(office: Invoke, tmp_path: Path) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    target = tmp_path / "ledger.csv"
+    result = office("report", "export", "ledger", "--out", str(target)).output
+    assert "3 rows to" in result
+    assert target.read_text().startswith("entry,reference,memo")
+
+
+def test_listing_the_exports(office: Invoke) -> None:
+    assert "trial-balance" in office("report", "exports").output

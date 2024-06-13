@@ -10,8 +10,10 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import exports
+from autozest.reporting import aging, exports
 from autozest.reporting import recap as recap_report
+from autozest.reporting.text import Align, Column, Table, money_column
+from autozest.settlement.statements import Side
 
 pass_context = click.make_pass_decorator(Context)
 
@@ -53,3 +55,26 @@ def list_exports() -> None:
     """What can be exported."""
     for name in exports.available():
         click.echo(name)
+
+
+@report.command("aging")
+@click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
+@pass_context
+def aged(ctx: Context, side: str) -> None:
+    """Who owes what, and for how long."""
+    built = aging.build(ctx.open(), Side(side))
+    table = Table(
+        [Column("party", 12), money_column("balance", 13), Column("oldest", 7, Align.RIGHT)]
+        + [money_column(name, 12) for name in aging.bucket_names()]
+    )
+    rows: list[list[object]] = [
+        [party.party_id, party.balance, party.oldest]
+        + [party.bucket(name) for name in aging.bucket_names()]
+        for party in built.parties
+    ]
+    for line in table.render(rows):
+        click.echo(line)
+    totals = built.totals()
+    click.echo(f"{len(rows)} accounts, {built.total} outstanding, {len(built.overdue)} overdue")
+    for name in aging.bucket_names():
+        click.echo(f"  {name:<10} {totals[name]}")

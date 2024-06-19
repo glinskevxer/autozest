@@ -12,6 +12,7 @@ import click
 from autozest.cli.context import Context
 from autozest.reporting import aging, exports
 from autozest.reporting import recap as recap_report
+from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
 from autozest.settlement.statements import Side
 
@@ -78,3 +79,62 @@ def aged(ctx: Context, side: str) -> None:
     click.echo(f"{len(rows)} accounts, {built.total} outstanding, {len(built.overdue)} overdue")
     for name in aging.bucket_names():
         click.echo(f"  {name:<10} {totals[name]}")
+
+
+@report.command("sellers")
+@click.option("--sale", "sale_code", default=None)
+@pass_context
+def sellers(ctx: Context, sale_code: str | None) -> None:
+    """Sell through, the gap to the floor, and how often units come back."""
+    table = Table(
+        [
+            Column("seller", 12),
+            Column("ran", 5, Align.RIGHT),
+            Column("sold", 5, Align.RIGHT),
+            Column("through", 8, Align.RIGHT),
+            money_column("gross", 14),
+            money_column("floor gap", 13),
+            Column("arb", 6, Align.RIGHT),
+            Column("watch", 6),
+        ]
+    )
+    records = PerformanceService(ctx.open()).sellers(sale_code)
+    rows: list[list[object]] = [
+        [
+            r.seller_id,
+            r.ran,
+            r.sold,
+            f"{r.sell_through}%",
+            r.gross,
+            r.floor_gap,
+            f"{r.arbitration_rate}%",
+            r.is_optimistic,
+        ]
+        for r in records
+    ]
+    for line in table.render(rows):
+        click.echo(line)
+    click.echo(f"{len(rows)} sellers")
+
+
+@report.command("buyers")
+@click.option("--sale", "sale_code", default=None)
+@pass_context
+def buyers(ctx: Context, sale_code: str | None) -> None:
+    """Who bought what."""
+    table = Table(
+        [
+            Column("buyer", 12),
+            Column("bought", 7, Align.RIGHT),
+            money_column("spend", 14),
+            money_column("average", 13),
+            Column("claims", 7, Align.RIGHT),
+        ]
+    )
+    records = PerformanceService(ctx.open()).buyers(sale_code)
+    rows: list[list[object]] = [
+        [r.buyer_id, r.bought, r.spend, r.average, r.claims] for r in records
+    ]
+    for line in table.render(rows):
+        click.echo(line)
+    click.echo(f"{len(rows)} buyers")

@@ -44,9 +44,9 @@ def problems() -> list[str]:
         if not _SNAKE.match(table):
             found.append(f"table {table!r} is not snake case")
         columns = conn.execute(f"PRAGMA table_info({table})").fetchall()
-        if not any(column["pk"] for column in columns):
-            if table not in _NO_PRIMARY_KEY_ALLOWED:
-                found.append(f"table {table!r} has no primary key")
+        no_key = not any(column["pk"] for column in columns)
+        if no_key and table not in _NO_PRIMARY_KEY_ALLOWED:
+            found.append(f"table {table!r} has no primary key")
         for column in columns:
             if not _SNAKE.match(column["name"]):
                 found.append(f"column {table}.{column['name']!r} is not snake case")

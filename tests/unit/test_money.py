@@ -57,7 +57,7 @@ def test_str_groups_thousands_and_keeps_two_places() -> None:
 
 def test_repr_round_trips_through_parse() -> None:
     amount = Money(-123456)
-    assert eval(repr(amount)) == amount  # noqa: S307
+    assert eval(repr(amount)) == amount
 
 
 def test_arithmetic_and_ordering() -> None:
@@ -74,7 +74,9 @@ def test_arithmetic_and_ordering() -> None:
 
 def test_arithmetic_with_a_non_money_is_not_implemented() -> None:
     with pytest.raises(TypeError):
-        Money(100) + 100  # type: ignore[operator]
+        Money(100) + 100
+    with pytest.raises(TypeError):
+        Money(100) - "45.00"
 
 
 def test_times_rounds_half_away_from_zero_at_the_cent() -> None:

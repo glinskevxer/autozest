@@ -66,14 +66,17 @@ _DEBIT_NORMAL = frozenset(
     {Account.CASH, Account.BUYER_RECEIVABLE, Account.ARBITRATION_EXPENSE, Account.WRITE_OFF}
 )
 
+#: Money is immutable so one shared zero is safe as a field default.
+ZERO = Money.zero()
+
 
 @dataclass(frozen=True)
 class Line:
     """One side of one movement."""
 
     account: Account
-    debit: Money = Money.zero()
-    credit: Money = Money.zero()
+    debit: Money = ZERO
+    credit: Money = ZERO
     party_id: str | None = None
     memo: str | None = None
 

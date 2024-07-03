@@ -58,29 +58,25 @@ def test_a_transaction_commits_on_a_clean_exit(conn: sqlite3.Connection) -> None
 
 
 def test_a_transaction_rolls_back_everything_on_an_exception(conn: sqlite3.Connection) -> None:
-    with pytest.raises(RuntimeError):
-        with transaction(conn):
-            conn.execute("INSERT INTO lane VALUES ('B', 90)")
-            conn.execute("INSERT INTO lane VALUES ('C', 90)")
-            raise RuntimeError("the block died half way")
+    with pytest.raises(RuntimeError), transaction(conn):
+        conn.execute("INSERT INTO lane VALUES ('B', 90)")
+        conn.execute("INSERT INTO lane VALUES ('C', 90)")
+        raise RuntimeError("the block died half way")
     assert conn.execute("SELECT COUNT(*) AS n FROM lane").fetchone()["n"] == 1
 
 
 def test_nesting_a_transaction_is_refused_rather_than_flattened(
     conn: sqlite3.Connection,
 ) -> None:
-    with transaction(conn):
-        with pytest.raises(Conflict, match="already open"):
-            with transaction(conn):
-                pass
+    with transaction(conn), pytest.raises(Conflict, match="already open"), transaction(conn):
+        pass
 
 
 def test_a_rolled_back_transaction_leaves_the_connection_usable(
     conn: sqlite3.Connection,
 ) -> None:
-    with pytest.raises(RuntimeError):
-        with transaction(conn):
-            raise RuntimeError("boom")
+    with pytest.raises(RuntimeError), transaction(conn):
+        raise RuntimeError("boom")
     with transaction(conn):
         conn.execute("INSERT INTO lane VALUES ('B', 90)")
     assert len(conn.execute("SELECT * FROM lane").fetchall()) == 2

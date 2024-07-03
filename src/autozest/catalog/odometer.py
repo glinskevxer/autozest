@@ -144,9 +144,8 @@ def derive_status(
     if not readings:
         raise ValidationError("cannot derive an odometer status with no readings")
 
-    if detect_rollback(readings, cluster_replaced=cluster_replaced) is not None:
-        derived = OdometerStatus.NOT_ACTUAL
-    elif cluster_replaced:
+    rolled_back = detect_rollback(readings, cluster_replaced=cluster_replaced) is not None
+    if rolled_back or cluster_replaced:
         derived = OdometerStatus.NOT_ACTUAL
     elif is_exempt(model_year, as_of):
         derived = OdometerStatus.EXEMPT

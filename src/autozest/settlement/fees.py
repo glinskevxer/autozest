@@ -20,7 +20,7 @@ that was already invoiced is wrong.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
@@ -121,11 +121,9 @@ class FeeSchedule:
 
     version: str = SCHEDULE_VERSION
     bands: Sequence[FeeBand] = DEFAULT_BANDS
-    services: Mapping[Service, Money] = None  # type: ignore[assignment]
+    services: Mapping[Service, Money] = field(default_factory=lambda: dict(DEFAULT_SERVICES))
 
     def __post_init__(self) -> None:
-        if self.services is None:
-            object.__setattr__(self, "services", dict(DEFAULT_SERVICES))
         if not self.bands:
             raise ConfigError("a fee schedule needs at least one band")
         if self.bands[-1].upper is not None:

@@ -108,12 +108,19 @@ class Money:
             raise MoneyError(f"{spec!r} is a number format, an amount is text here")
         return format(str(self), spec)
 
-    def __add__(self, other: Money) -> Money:
+    def __add__(self, other: object) -> Money:
+        """Add. Anything that is not an amount is refused at runtime.
+
+        The parameter is deliberately ``object`` rather than ``Money``. Typing
+        it as Money tells the checker the guard can never fire, and the guard
+        is the whole point: an int on the wrong side of a plus is a bug this
+        has to raise on rather than quietly treat as cents.
+        """
         if not isinstance(other, Money):
             return NotImplemented
         return Money(self.cents + other.cents)
 
-    def __sub__(self, other: Money) -> Money:
+    def __sub__(self, other: object) -> Money:
         if not isinstance(other, Money):
             return NotImplemented
         return Money(self.cents - other.cents)

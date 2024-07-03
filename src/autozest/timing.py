@@ -63,10 +63,7 @@ def _nth_weekday(year: int, month: int, weekday: int, nth: int) -> date:
         first = date(year, month, 1)
         offset = (weekday - first.weekday()) % 7
         return first + timedelta(days=offset + 7 * (nth - 1))
-    if month == 12:
-        last = date(year, 12, 31)
-    else:
-        last = date(year, month + 1, 1) - timedelta(days=1)
+    last = date(year, 12, 31) if month == 12 else date(year, month + 1, 1) - timedelta(days=1)
     offset = (last.weekday() - weekday) % 7
     return last - timedelta(days=offset + 7 * (-nth - 1))
 

@@ -41,6 +41,9 @@ from autozest.timing import Window, WindowUnit
 #: Bump this whenever any number below changes.
 POLICY_VERSION = "2024.1"
 
+#: Money is immutable so a shared instance is safe as a default.
+ZERO = Money.zero()
+
 _HOURS = WindowUnit.BUSINESS_HOURS
 _BDAYS = WindowUnit.BUSINESS_DAYS
 _CDAYS = WindowUnit.CALENDAR_DAYS
@@ -51,7 +54,7 @@ class ClaimRule:
     """The window and threshold for one class of defect."""
 
     window: Window
-    threshold: Money = Money.zero()
+    threshold: Money = ZERO
     needs_evidence: bool = False
 
     @property

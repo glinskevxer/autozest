@@ -19,6 +19,7 @@ from autozest.consignment.intake import IntakeService
 from autozest.money import Money
 from autozest.reporting.text import Column, Table, key_values, money_column
 from autozest.settlement.fees import Service
+from autozest.settlement.floorplan import FloorplanService, LineStatus
 from autozest.settlement.ledger import Ledger
 from autozest.settlement.payments import Method, PaymentService
 from autozest.settlement.postings import PostingService
@@ -216,3 +217,52 @@ def trial_balance(ctx: Context) -> None:
     click.echo("balanced" if ledger.is_balanced() else "OUT OF BALANCE")
     if not ledger.is_balanced():
         raise SystemExit(1)
+
+
+@settle.command("credit")
+@click.argument("buyer")
+@click.option(
+    "--open",
+    "open_line",
+    nargs=3,
+    default=None,
+    metavar="ID LENDER LIMIT",
+    help="Open a line for this buyer.",
+)
+@click.option("--limit", "new_limit", nargs=2, default=None, metavar="ID AMOUNT")
+@click.option("--suspend", "suspend_id", default=None, metavar="ID")
+@click.option("--reinstate", "reinstate_id", default=None, metavar="ID")
+@pass_context
+def credit(
+    ctx: Context,
+    buyer: str,
+    open_line: tuple[str, str, str] | None,
+    new_limit: tuple[str, str] | None,
+    suspend_id: str | None,
+    reinstate_id: str | None,
+) -> None:
+    """Show or change a buyer's floor plan lines."""
+    service = FloorplanService(ctx.open())
+    if open_line:
+        line_id, lender, limit = open_line
+        service.open_line(line_id, buyer, lender, Money.parse(limit))
+    if new_limit:
+        service.set_limit(new_limit[0], Money.parse(new_limit[1]))
+    if suspend_id:
+        service.set_status(suspend_id, LineStatus.SUSPENDED)
+    if reinstate_id:
+        service.set_status(reinstate_id, LineStatus.ACTIVE)
+
+    table = Table(
+        [
+            Column("line", 8),
+            Column("lender", 24),
+            money_column("limit", 14),
+            Column("status", 10),
+        ]
+    )
+    lines = service.lines_for(buyer)
+    for text in table.render([[ln.id, ln.lender, ln.limit, ln.status.value] for ln in lines]):
+        click.echo(text)
+    capacity = service.capacity(buyer)
+    click.echo(capacity.explain())

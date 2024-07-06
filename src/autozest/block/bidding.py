@@ -19,6 +19,13 @@ front of a room of people.
 An if bid that the seller counters is a new offer to the buyer, not a binding
 price. The buyer can walk, and if they do the unit is a no sale rather than a
 sale at the buyer's own number.
+
+Credit is checked at the bid rather than at the hammer. Doing it at the hammer
+is technically more correct, because a losing bid never costs anybody
+anything, and it is useless in practice: nobody wants to find out that the
+winning bid cannot be funded after the auctioneer has said sold to a room.
+A buyer with no line at all is not checked, because most of the smaller ones
+pay cash and a limit of nothing would stop them bidding entirely.
 """
 
 from __future__ import annotations
@@ -35,6 +42,7 @@ from autozest.consignment.models import ConsignmentStatus
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import PolicyViolation, ValidationError
 from autozest.money import Money
+from autozest.settlement.floorplan import FloorplanService
 from autozest.storage.records import all_rows, insert, now_text, one, update
 
 
@@ -82,6 +90,7 @@ class BiddingService:
         self.sales = SaleRepository(conn)
         self.accounts = AccountRepository(conn)
         self.consignments = ConsignmentRepository(conn)
+        self.credit = FloorplanService(conn)
 
     def standing_bid(self, run_id: int) -> Bid | None:
         """The highest live bid so far."""
@@ -130,6 +139,7 @@ class BiddingService:
         self._require_not_own_unit(run, buyer_id)
         if amount.is_negative:
             raise ValidationError("a bid cannot be negative")
+        self._require_credit(run, buyer_id, amount)
 
         standing = self.standing_bid(run_id)
         if standing is not None:
@@ -178,6 +188,23 @@ class BiddingService:
                 run=run.number,
                 account=buyer_id,
             )
+
+    def _require_credit(self, run: Run, buyer_id: str, amount: Money) -> None:
+        """Check the line before taking the bid, not after the hammer.
+
+        A losing bid costs nobody anything, so checking at the fall would be
+        more correct. It is also useless: nobody wants to discover the winning
+        bid cannot be funded after the auctioneer has said sold to a room.
+        """
+        try:
+            self.credit.require_capacity(buyer_id, amount)
+        except PolicyViolation as exc:
+            raise PolicyViolation(
+                exc.rule,
+                exc.message,
+                run=run.number,
+                **{key: value for key, value in exc.context.items() if key != "rule"},
+            ) from exc
 
     def fall(self, run_id: int) -> Run:
         """Drop the hammer on whatever the standing bid is.

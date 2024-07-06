@@ -154,3 +154,30 @@ def test_exporting_the_ledger_to_a_file(office: Invoke, tmp_path: Path) -> None:
 
 def test_listing_the_exports(office: Invoke) -> None:
     assert "trial-balance" in office("report", "exports").output
+
+
+def test_opening_and_reading_a_credit_line(office: Invoke) -> None:
+    opened = office(
+        "settle", "credit", "d-200", "--open", "L-1", "Ninth Street", "50000.00"
+    ).output
+    assert "L-1" in opened
+    assert "50,000.00 of 50,000.00" in opened
+
+
+def test_a_line_narrows_as_the_buyer_spends(office: Invoke) -> None:
+    office("settle", "credit", "d-200", "--open", "L-1", "Ninth Street", "50000.00")
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    assert "41,455.00 of 50,000.00" in office("settle", "credit", "d-200").output
+
+
+def test_suspending_and_reinstating_a_line(office: Invoke) -> None:
+    office("settle", "credit", "d-200", "--open", "L-1", "Ninth Street", "50000.00")
+    assert "suspended" in office("settle", "credit", "d-200", "--suspend", "L-1").output
+    assert "active" in office("settle", "credit", "d-200", "--reinstate", "L-1").output
+
+
+def test_moving_a_limit_from_the_command_line(office: Invoke) -> None:
+    office("settle", "credit", "d-200", "--open", "L-1", "Ninth Street", "50000.00")
+    moved = office("settle", "credit", "d-200", "--limit", "L-1", "75000.00").output
+    assert "75,000.00" in moved

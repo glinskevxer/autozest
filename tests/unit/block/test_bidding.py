@@ -5,6 +5,7 @@ from autozest.block.models import RunStatus
 from autozest.consignment.models import ConsignmentStatus
 from autozest.errors import PolicyViolation, ValidationError
 from autozest.money import Money
+from autozest.settlement.floorplan import FloorplanService
 from tests.conftest import Floor
 
 
@@ -188,3 +189,43 @@ def test_a_bid_can_still_be_taken_while_a_unit_is_on_if(
     bidding.fall(run_id)
     bidding.bid(run_id, "d-200", Money.parse("4400.00"))
     assert bidding.accept(run_id).hammer == Money.parse("4400.00")
+
+
+def test_a_buyer_with_no_line_bids_freely(floor: Floor, bidding: BiddingService) -> None:
+    run_id = opened(floor)
+    bidding.bid(run_id, "d-200", Money.parse("90000.00"))
+    assert bidding.fall(run_id).status is RunStatus.SOLD
+
+
+def test_a_bid_past_the_line_is_refused_at_the_bid(
+    floor: Floor, bidding: BiddingService
+) -> None:
+    run_id = opened(floor)
+    FloorplanService(floor.conn).open_line(
+        "L-1", "d-200", "Ninth Street Finance", Money.parse("5000.00")
+    )
+    with pytest.raises(PolicyViolation) as caught:
+        bidding.bid(run_id, "d-200", Money.parse("8000.00"))
+    assert caught.value.rule == "credit.exhausted"
+    assert caught.value.context["run"] == "A001"
+
+
+def test_a_bid_inside_the_line_is_taken(floor: Floor, bidding: BiddingService) -> None:
+    run_id = opened(floor)
+    FloorplanService(floor.conn).open_line(
+        "L-1", "d-200", "Ninth Street Finance", Money.parse("20000.00")
+    )
+    bidding.bid(run_id, "d-200", Money.parse("8000.00"))
+    assert bidding.fall(run_id).status is RunStatus.SOLD
+
+
+def test_what_is_already_drawn_narrows_what_can_be_bid(
+    floor: Floor, bidding: BiddingService
+) -> None:
+    run_id = opened(floor)
+    credit = FloorplanService(floor.conn)
+    credit.open_line("L-1", "d-200", "Ninth Street Finance", Money.parse("20000.00"))
+    credit.draw("L-1", Money.parse("15000.00"))
+    with pytest.raises(PolicyViolation) as caught:
+        bidding.bid(run_id, "d-200", Money.parse("8000.00"))
+    assert "5,000.00" in str(caught.value)

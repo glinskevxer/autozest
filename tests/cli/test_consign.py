@@ -179,3 +179,49 @@ def test_the_light_shows_on_the_unit_screen_after_signing(stocked: Invoke) -> No
     output = stocked("consign", "show", ACCORD).output
     assert "yellow" in output
     assert "unibody damage" in output
+
+
+FLEET_CSV = (
+    "vin,make,model,year,floor,title,note\n"
+    "1HGCM82633A004352,Honda,Accord,2019,4500.00,yes,clean unit\n"
+    "5YJ3E1EA0KF000316,Tesla,Model 3,2019,18000.00,yes,\n"
+)
+
+
+def test_a_dry_run_writes_nothing(stocked: Invoke, tmp_path: Path) -> None:
+    target = tmp_path / "fleet.csv"
+    target.write_text(FLEET_CSV)
+    result = stocked("consign", "import", str(target), "d-100", "--dry-run")
+    assert "2 rows would import cleanly" in result.output
+    assert "0 units" in stocked("consign", "list").output
+
+
+def test_a_real_import_registers_everything(stocked: Invoke, tmp_path: Path) -> None:
+    target = tmp_path / "fleet.csv"
+    target.write_text(FLEET_CSV)
+    result = stocked("consign", "import", str(target), "d-100")
+    assert "2 units registered" in result.output
+    assert "2 units" in stocked("consign", "list", "--status", "registered").output
+
+
+def test_a_bad_file_exits_two_and_writes_nothing(stocked: Invoke, tmp_path: Path) -> None:
+    target = tmp_path / "fleet.csv"
+    target.write_text(FLEET_CSV + "NOTAVIN,Honda,Accord,2019,,,\n")
+    result = stocked("consign", "import", str(target), "d-100", expect=2)
+    assert "nothing imported" in result.output
+    assert "0 units" in stocked("consign", "list", "--status", "registered").output
+
+
+def test_a_file_that_is_not_there(stocked: Invoke, tmp_path: Path) -> None:
+    stocked("consign", "import", str(tmp_path / "nope.csv"), "d-100", expect=2)
+
+
+def test_the_unit_history(stocked: Invoke) -> None:
+    stocked("consign", "register", ACCORD, "d-100")
+    stocked("consign", "check-in", ACCORD, "--keys", "2", "--miles", "41930")
+    stocked("consign", "withdraw", ACCORD, "sold retail")
+    stocked("consign", "register", ACCORD, "d-100")
+    output = stocked("consign", "history", ACCORD).output
+    assert "2 visits" in output
+    assert "1 odometer readings" in output
+    assert "41930" in output

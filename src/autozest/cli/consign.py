@@ -9,10 +9,12 @@ happened rather than exiting silently on success.
 from __future__ import annotations
 
 from decimal import Decimal
+from pathlib import Path
 
 import click
 
 from autozest.cli.context import Context
+from autozest.consignment.importer import ConsignmentImporter
 from autozest.consignment.intake import Arrival, IntakeService
 from autozest.consignment.models import ConsignmentStatus
 from autozest.inspection.announcements import AnnouncementCode, forced_light, labels
@@ -274,3 +276,59 @@ def damage_list(ctx: Context, report: str) -> None:
     click.echo(
         f"{len(lines)} findings, {Money(sum(line.cost.cents for line in lines))} of repairs"
     )
+
+
+@consign.command("import")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.argument("seller")
+@click.option("--dry-run", is_flag=True, help="Check the file and write nothing.")
+@pass_context
+def import_file(ctx: Context, path: str, seller: str, dry_run: bool) -> None:
+    """Load a fleet's spreadsheet.
+
+    Nothing is written unless the whole file is clean, so a dry run and a real
+    run report exactly the same problems.
+    """
+    importer = ConsignmentImporter(ctx.open())
+    plan = importer.plan(Path(path).read_text("utf-8"), seller)
+    for problem in plan.report():
+        click.echo(problem, err=True)
+    if not plan.is_clean:
+        click.echo(f"{len(plan.problems)} problems, nothing imported", err=True)
+        raise SystemExit(2)
+    if dry_run:
+        click.echo(f"{plan.count} rows would import cleanly")
+        return
+    created = importer.apply(plan)
+    click.echo(f"{len(created)} units registered for {seller}")
+    for unit in created[:10]:
+        click.echo(f"  {unit.id}  {unit.vin}")
+    if len(created) > 10:
+        click.echo(f"  and {len(created) - 10} more")
+
+
+@consign.command("history")
+@click.argument("vin")
+@pass_context
+def history(ctx: Context, vin: str) -> None:
+    """Every time this unit has been through, and what its odometer said."""
+    service = IntakeService(ctx.open())
+    key = vin.strip().upper()
+    vehicle = service.vehicles.get(key)
+    click.echo(f"{vehicle.description}  {key}")
+    table = Table(
+        [
+            Column("consignment", 13),
+            Column("seller", 10),
+            Column("status", 11),
+            money_column("floor", 11),
+        ]
+    )
+    visits = service.consignments.history_for_vin(key)
+    rows = [[c.id, c.seller_id, c.status.value, c.floor] for c in visits]
+    for line in table.render(rows):
+        click.echo(line)
+    readings = service.vehicles.history(key).readings
+    click.echo(f"{len(visits)} visits, {len(readings)} odometer readings")
+    for reading in readings:
+        click.echo(f"  {reading.read_on}  {reading.miles:>9}  {reading.source}")

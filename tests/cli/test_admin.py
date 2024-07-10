@@ -72,3 +72,25 @@ def test_narrowing_the_trail(initialised: Invoke) -> None:
     subject = initialised("admin", "audit", "--subject", "sale", "--id", "S-2").output
     assert "second" in subject
     assert "first" not in subject
+
+
+def test_seeding_builds_a_sale(initialised: Invoke) -> None:
+    output = initialised("admin", "seed", "--units", "10").output
+    assert "S-20240312" in output
+    assert "10 units" in output
+    assert "sold" in output
+
+
+def test_seeding_twice_is_refused(initialised: Invoke) -> None:
+    initialised("admin", "seed", "--units", "4")
+    initialised("admin", "seed", "--units", "4", expect=5)
+
+
+def test_a_seeded_database_still_passes_its_own_checks(initialised: Invoke) -> None:
+    initialised("admin", "seed", "--units", "10")
+    assert "0 problems" in initialised("admin", "check").output
+
+
+def test_a_seeded_sale_recaps(initialised: Invoke) -> None:
+    initialised("admin", "seed", "--units", "12")
+    assert "sale recap" in initialised("report", "recap", "S-20240312").output

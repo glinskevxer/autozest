@@ -12,7 +12,7 @@ is not. That has cost this business a Tuesday already.
 from __future__ import annotations
 
 import sqlite3
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import click
@@ -23,6 +23,7 @@ from autozest.reporting.text import Align, Column, Table, key_values
 from autozest.storage.db import connect, integrity_problems, table_names
 from autozest.storage.migrator import current_version, load_migrations, pending
 from autozest.tools.check_migrations import problems as migration_problems
+from autozest.tools.demo import build as build_demo
 
 pass_context = click.make_pass_decorator(Context)
 
@@ -138,3 +139,30 @@ def note(ctx: Context, subject: str, subject_id: str, detail: str, actor: str | 
     log = AuditLog(ctx.open(), actor)
     log.record("note", subject, subject_id, detail)
     click.echo(f"noted against {subject} {subject_id}")
+
+
+@admin.command("seed")
+@click.option("--units", default=24, show_default=True)
+@click.option("--seed", "seed_value", default=20240312, show_default=True)
+@click.option("--date", "sale_day", default=None, help="Sale date, defaults to 2024-03-12.")
+@pass_context
+def seed(ctx: Context, units: int, seed_value: int, sale_day: str | None) -> None:
+    """Fill an empty database with one sale's worth of everything.
+
+    For a demonstration or a load test. The same seed builds the same sale, so
+    a bug that only shows on the two hundredth unit is reproducible.
+    """
+    conn = ctx.open(create=True)
+    if conn.execute("SELECT COUNT(*) AS n FROM account").fetchone()["n"]:
+        click.echo("this database already has accounts in it", err=True)
+        raise SystemExit(5)
+    built = build_demo(
+        conn,
+        units=units,
+        seed=seed_value,
+        sale_day=date.fromisoformat(sale_day) if sale_day else None,
+    )
+    click.echo(
+        f"{built.sale_code}  {built.units} units, {built.sold} sold, "
+        f"{built.no_sale} no sale, {built.accounts} accounts"
+    )

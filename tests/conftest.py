@@ -59,7 +59,11 @@ class Floor:
 @pytest.fixture()
 def floor(db: sqlite3.Connection) -> Floor:
     accounts = AccountRepository(db)
-    for account_id, name in (("d-100", "Ridgeline Motors"), ("d-200", "Kestrel Auto")):
+    for account_id, name in (
+        ("d-100", "Ridgeline Motors"),
+        ("d-200", "Kestrel Auto"),
+        ("d-300", "Cotton Lane Motors"),
+    ):
         accounts.add(
             Account(
                 id=account_id,

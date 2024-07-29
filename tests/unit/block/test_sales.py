@@ -10,6 +10,7 @@ from autozest.catalog.vehicles import Vehicle, VehicleRepository
 from autozest.consignment.intake import Arrival, IntakeService
 from autozest.errors import Conflict, NotFound, PolicyViolation, StateError
 from autozest.inspection.announcements import Light
+from autozest.money import Money
 from autozest.vin import Vin
 
 WHEN = date(2024, 3, 12)
@@ -218,3 +219,40 @@ def test_recent_sales_come_back_newest_first(
     sales.create(date(2024, 3, 5), "First", {"A": 10})
     sales.create(date(2024, 3, 12), "Second", {"A": 10})
     assert [s.title for s in sales.recent()] == ["Second", "First"]
+
+
+def test_the_run_sheet_joins_everything_on_in_one_query(
+    yard: tuple[SaleRepository, IntakeService],
+) -> None:
+    sales, intake = yard
+    sale = sales.create(WHEN, "Tuesday dealer sale", {"A": 100})
+    unit = consigned(intake, VINS[0])
+    intake.consignments.set_floor(unit, Money.parse("4500.00"))
+    sales.add_run(sale.code, "A", unit, Light.YELLOW)
+    lines = sales.run_sheet(sale.code)
+    assert len(lines) == 1
+    line = lines[0]
+    assert line.number == "A001"
+    assert line.vin == VINS[0]
+    assert line.seller_id == "d-100"
+    assert line.light is Light.YELLOW
+    assert line.floor == Money.parse("4500.00")
+    assert line.hammer is None
+    assert "Model0" in line.description
+
+
+def test_the_run_sheet_narrows_to_a_lane(yard: tuple[SaleRepository, IntakeService]) -> None:
+    sales, intake = yard
+    sale = sales.create(WHEN, "Tuesday dealer sale", {"A": 100, "B": 100})
+    sales.add_run(sale.code, "A", consigned(intake, VINS[0]), Light.GREEN)
+    sales.add_run(sale.code, "B", consigned(intake, VINS[1]), Light.GREEN)
+    assert len(sales.run_sheet(sale.code)) == 2
+    assert [line.number for line in sales.run_sheet(sale.code, "B")] == ["B001"]
+
+
+def test_an_empty_sale_has_an_empty_run_sheet(
+    yard: tuple[SaleRepository, IntakeService],
+) -> None:
+    sales, _ = yard
+    sale = sales.create(WHEN, "Tuesday dealer sale", {"A": 100})
+    assert sales.run_sheet(sale.code) == []

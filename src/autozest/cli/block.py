@@ -95,25 +95,21 @@ def catalogue(
 @pass_context
 def runs(ctx: Context, code: str, lane: str | None) -> None:
     """The run sheet."""
-    conn = ctx.open()
-    repo = SaleRepository(conn)
-    consignments = ConsignmentRepository(conn)
+    repo = SaleRepository(ctx.open())
     found = repo.get(code)
     click.echo(f"{found.code}  {found.title}  {found.sale_date}  {found.status.value}")
-    rows = []
-    for run in repo.runs(code, lane.upper() if lane else None):
-        unit = consignments.get(run.consignment_id)
-        rows.append(
-            [
-                run.number,
-                run.consignment_id,
-                unit.vin,
-                run.light.value,
-                run.status.value,
-                run.hammer,
-                run.buyer_id,
-            ]
-        )
+    rows = [
+        [
+            line.number,
+            line.consignment_id,
+            line.vin,
+            line.light.value,
+            line.status.value,
+            line.hammer,
+            line.buyer_id,
+        ]
+        for line in repo.run_sheet(code, lane.upper() if lane else None)
+    ]
     for text in RUN_TABLE.render(rows):
         click.echo(text)
     click.echo(f"{len(rows)} runs")

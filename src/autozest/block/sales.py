@@ -9,12 +9,14 @@ working off a list they downloaded that morning.
 from __future__ import annotations
 
 import sqlite3
+from dataclasses import dataclass
 from datetime import date, datetime
 
 from autozest.block.models import Lane, Run, RunStatus, Sale, SaleStatus
 from autozest.errors import Conflict, NotFound, PolicyViolation
 from autozest.identifiers import sale_code
 from autozest.inspection.announcements import Light
+from autozest.money import Money
 from autozest.storage.records import (
     all_rows,
     insert,
@@ -24,6 +26,23 @@ from autozest.storage.records import (
     scalar,
     update,
 )
+
+
+@dataclass(frozen=True)
+class RunSheetLine:
+    """One line of a printed run sheet, with everything already joined on."""
+
+    run_id: int
+    number: str
+    consignment_id: str
+    vin: str
+    description: str
+    seller_id: str
+    light: Light
+    status: RunStatus
+    buyer_id: str | None = None
+    floor: Money | None = None
+    hammer: Money | None = None
 
 
 class SaleRepository:
@@ -249,6 +268,51 @@ class SaleRepository:
         pulled = run.with_status(RunStatus.PULLED)
         update(self.conn, "run", {"id": run_id}, {"status": pulled.status.value})
         return self.run(run_id)
+
+    def run_sheet(self, code: str, lane: str | None = None) -> list[RunSheetLine]:
+        """The run order with the unit details already attached.
+
+        The obvious way to print a run sheet is to walk the runs and look up
+        each consignment and vehicle, which is three hundred round trips for a
+        sale of three hundred. This is one.
+        """
+        rows = all_rows(
+            self.conn,
+            "SELECT r.id, r.lane, r.position, r.light, r.status, r.hammer_cents, "
+            "r.buyer_id, r.consignment_id, c.seller_id, c.floor_cents, c.vin, "
+            "v.model_year, v.make, v.model, v.series "
+            "FROM run r "
+            "JOIN consignment c ON c.id = r.consignment_id "
+            "JOIN vehicle v ON v.vin = c.vin "
+            "WHERE r.sale_code = ? AND (? IS NULL OR r.lane = ?) "
+            "ORDER BY r.lane, r.position",
+            (code, lane, lane),
+        )
+        return [
+            RunSheetLine(
+                run_id=row["id"],
+                number=f"{row['lane']}{row['position']:03d}",
+                consignment_id=row["consignment_id"],
+                vin=row["vin"],
+                description=" ".join(
+                    part
+                    for part in (
+                        str(row["model_year"]),
+                        row["make"],
+                        row["model"],
+                        row["series"],
+                    )
+                    if part
+                ),
+                seller_id=row["seller_id"],
+                buyer_id=row["buyer_id"],
+                light=Light(row["light"]),
+                status=RunStatus(row["status"]),
+                floor=Money(row["floor_cents"]) if row["floor_cents"] is not None else None,
+                hammer=Money(row["hammer_cents"]) if row["hammer_cents"] is not None else None,
+            )
+            for row in rows
+        ]
 
     def require_open(self, code: str) -> Sale:
         sale = self.get(code)

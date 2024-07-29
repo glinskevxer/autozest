@@ -26,11 +26,25 @@ from autozest.storage.migrator import migrate
 from autozest.vin import Vin
 
 
-@pytest.fixture()
-def db() -> Iterator[sqlite3.Connection]:
-    """A migrated in memory database, thrown away after each test."""
+@pytest.fixture(scope="session")
+def schema_template() -> Iterator[sqlite3.Connection]:
+    """The migrated schema, built once for the whole run.
+
+    Running every migration for every test was costing about a third of the
+    suite. The scripts are identical each time and sqlite can copy a database
+    far faster than it can execute the statements that built it.
+    """
     conn = connect_memory()
     migrate(conn)
+    yield conn
+    conn.close()
+
+
+@pytest.fixture()
+def db(schema_template: sqlite3.Connection) -> Iterator[sqlite3.Connection]:
+    """A migrated in memory database, thrown away after each test."""
+    conn = connect_memory()
+    schema_template.backup(conn)
     yield conn
     conn.close()
 

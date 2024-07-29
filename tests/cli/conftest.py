@@ -8,6 +8,7 @@ and that mapping is most of what these tests are checking.
 from __future__ import annotations
 
 import io
+import shutil
 from collections.abc import Callable
 from contextlib import redirect_stderr, redirect_stdout
 from dataclasses import dataclass
@@ -16,6 +17,8 @@ from pathlib import Path
 import pytest
 
 from autozest.cli.main import run
+from autozest.storage.db import connect
+from autozest.storage.migrator import migrate
 
 Invoke = Callable[..., "Outcome"]
 
@@ -40,6 +43,21 @@ def invoke(*args: str) -> Outcome:
     return Outcome(exit_code=code, stdout=out.getvalue(), stderr=err.getvalue())
 
 
+@pytest.fixture(scope="session")
+def migrated_template(tmp_path_factory: pytest.TempPathFactory) -> Path:
+    """A migrated database file, built once for the whole run.
+
+    Every command line test needs one and running the migrations for each of
+    them was most of what the suite spent its time on. Copying the file is the
+    same thing and is not measurable.
+    """
+    target = tmp_path_factory.mktemp("template") / "template.sqlite3"
+    conn = connect(target)
+    migrate(conn)
+    conn.close()
+    return target
+
+
 @pytest.fixture()
 def db_path(tmp_path: Path) -> Path:
     return tmp_path / "sale.sqlite3"
@@ -58,6 +76,7 @@ def run_cli(db_path: Path) -> Invoke:
 
 
 @pytest.fixture()
-def initialised(run_cli: Invoke) -> Invoke:
-    run_cli("init")
+def initialised(run_cli: Invoke, db_path: Path, migrated_template: Path) -> Invoke:
+    """A command line pointed at a database that is already migrated."""
+    shutil.copy(migrated_template, db_path)
     return run_cli

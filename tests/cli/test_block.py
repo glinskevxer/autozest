@@ -166,3 +166,28 @@ def test_the_recap_prints(ring: Invoke) -> None:
     assert "sale recap" in output
     assert "5,200.00" in output
     assert "sell through" in output
+
+
+def test_the_door_list(ring: Invoke) -> None:
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    assert "badge 1 for d-200" in ring("block", "register", "S-20240312", "d-200").output
+    assert "1 registered" in ring("block", "door", "S-20240312").output
+
+
+def test_a_requested_badge_is_honoured(ring: Invoke) -> None:
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    output = ring("block", "register", "S-20240312", "d-200", "--badge", "40").output
+    assert "badge 40" in output
+
+
+def test_a_clean_buyer_has_no_blockers(ring: Invoke) -> None:
+    assert "0 blockers" in ring("block", "blockers", "d-200").output
+
+
+def test_bidding_without_a_badge_once_the_list_exists(ring: Invoke) -> None:
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    prepared(ring, VINS[0])
+    ring("sale", "catalogue", "S-20240312", "--lane", "A")
+    ring("block", "register", "S-20240312", "d-100")
+    ring("sale", "open", "S-20240312")
+    ring("block", "bid", "S-20240312", "A001", "d-200", "5200.00", expect=7)

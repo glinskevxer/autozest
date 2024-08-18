@@ -26,6 +26,11 @@ anything, and it is useless in practice: nobody wants to find out that the
 winning bid cannot be funded after the auctioneer has said sold to a room.
 A buyer with no line at all is not checked, because most of the smaller ones
 pay cash and a limit of nothing would stop them bidding entirely.
+
+Registration works the same way. A sale with nobody on the door list is not
+running a door list, so nothing is enforced. The moment one buyer is
+registered the list is real and everybody bidding has to be on it, which is
+what stops a half kept list being worse than none.
 """
 
 from __future__ import annotations
@@ -36,6 +41,7 @@ from datetime import datetime
 from enum import Enum
 
 from autozest.block.models import Run, RunStatus
+from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
 from autozest.catalog.accounts import AccountRepository
 from autozest.consignment.models import ConsignmentStatus
@@ -91,6 +97,7 @@ class BiddingService:
         self.accounts = AccountRepository(conn)
         self.consignments = ConsignmentRepository(conn)
         self.credit = FloorplanService(conn)
+        self.registrations = RegistrationService(conn)
 
     def standing_bid(self, run_id: int) -> Bid | None:
         """The highest live bid so far."""
@@ -140,6 +147,7 @@ class BiddingService:
         if amount.is_negative:
             raise ValidationError("a bid cannot be negative")
         self._require_credit(run, buyer_id, amount)
+        self._require_registered(run, buyer_id)
 
         standing = self.standing_bid(run_id)
         if standing is not None:
@@ -205,6 +213,16 @@ class BiddingService:
                 run=run.number,
                 **{key: value for key, value in exc.context.items() if key != "rule"},
             ) from exc
+
+    def _require_registered(self, run: Run, buyer_id: str) -> None:
+        """Enforce the door list, but only when there is one.
+
+        A sale nobody registered for is not running a door list. Once one buyer
+        is on it the list is real, because a half kept list is worse than none.
+        """
+        if not self.registrations.for_sale(run.sale_code):
+            return
+        self.registrations.require_registered(run.sale_code, buyer_id)
 
     def fall(self, run_id: int) -> Run:
         """Drop the hammer on whatever the standing bid is.

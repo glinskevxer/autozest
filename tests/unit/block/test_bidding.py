@@ -2,6 +2,7 @@ import pytest
 
 from autozest.block.bidding import BiddingService, BidKind, increment_at
 from autozest.block.models import RunStatus
+from autozest.block.registration import RegistrationService
 from autozest.consignment.models import ConsignmentStatus
 from autozest.errors import PolicyViolation, ValidationError
 from autozest.money import Money
@@ -229,3 +230,28 @@ def test_what_is_already_drawn_narrows_what_can_be_bid(
     with pytest.raises(PolicyViolation) as caught:
         bidding.bid(run_id, "d-200", Money.parse("8000.00"))
     assert "5,000.00" in str(caught.value)
+
+
+def test_a_sale_with_no_door_list_does_not_enforce_one(
+    floor: Floor, bidding: BiddingService
+) -> None:
+    run_id = opened(floor)
+    bidding.bid(run_id, "d-200", Money.parse("5200.00"))
+    assert bidding.fall(run_id).status is RunStatus.SOLD
+
+
+def test_once_one_buyer_registers_everybody_has_to(
+    floor: Floor, bidding: BiddingService
+) -> None:
+    run_id = opened(floor)
+    RegistrationService(floor.conn).register(floor.code, "d-300")
+    with pytest.raises(PolicyViolation) as caught:
+        bidding.bid(run_id, "d-200", Money.parse("5200.00"))
+    assert caught.value.rule == "registration.missing"
+
+
+def test_a_registered_buyer_bids(floor: Floor, bidding: BiddingService) -> None:
+    run_id = opened(floor)
+    RegistrationService(floor.conn).register(floor.code, "d-200")
+    bidding.bid(run_id, "d-200", Money.parse("5200.00"))
+    assert bidding.fall(run_id).status is RunStatus.SOLD

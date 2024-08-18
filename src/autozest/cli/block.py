@@ -15,6 +15,7 @@ import click
 from autozest.block.bidding import BiddingService
 from autozest.block.catalogue import CatalogueService
 from autozest.block.models import RunStatus
+from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
 from autozest.cli.context import Context
 from autozest.consignment.repository import ConsignmentRepository
@@ -297,3 +298,51 @@ def relight(ctx: Context, code: str, run: str, light: str, reason: str) -> None:
     assert found.id is not None
     moved = CatalogueService(conn).relight(found.id, Light(light), reason)
     click.echo(f"{moved.number} is now {moved.light.value}")
+
+
+@block.command("register")
+@click.argument("code")
+@click.argument("buyer")
+@click.option("--badge", type=int, default=None, help="Ask for a particular badge.")
+@click.option("--force", is_flag=True, help="Register anyway and mark the badge blocked.")
+@pass_context
+def register(ctx: Context, code: str, buyer: str, badge: int | None, force: bool) -> None:
+    """Put a buyer on the door list."""
+    service = RegistrationService(ctx.open())
+    registration = service.register(code, buyer, badge=badge, force=force)
+    click.echo(f"badge {registration.badge} for {buyer}, {registration.status.value}")
+    if registration.blocked_reason:
+        click.echo(f"  {registration.blocked_reason}", err=True)
+
+
+@block.command("door")
+@click.argument("code")
+@pass_context
+def door(ctx: Context, code: str) -> None:
+    """Who is on the door list."""
+    service = RegistrationService(ctx.open())
+    table = Table(
+        [
+            Column("badge", 6, Align.RIGHT),
+            Column("buyer", 12),
+            Column("status", 10),
+            Column("reason", 44),
+        ]
+    )
+    rows = [
+        [r.badge, r.buyer_id, r.status.value, r.blocked_reason] for r in service.for_sale(code)
+    ]
+    for line in table.render(rows):
+        click.echo(line)
+    click.echo(f"{len(rows)} registered")
+
+
+@block.command("blockers")
+@click.argument("buyer")
+@pass_context
+def blockers(ctx: Context, buyer: str) -> None:
+    """What would stop this buyer registering."""
+    reasons = RegistrationService(ctx.open()).blockers(buyer)
+    for reason in reasons:
+        click.echo(reason)
+    click.echo(f"{len(reasons)} blockers")

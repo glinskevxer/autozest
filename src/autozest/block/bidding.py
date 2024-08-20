@@ -44,6 +44,7 @@ from autozest.block.models import Run, RunStatus
 from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
 from autozest.catalog.accounts import AccountRepository
+from autozest.catalog.groups import GroupService
 from autozest.consignment.models import ConsignmentStatus
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import PolicyViolation, ValidationError
@@ -98,6 +99,7 @@ class BiddingService:
         self.consignments = ConsignmentRepository(conn)
         self.credit = FloorplanService(conn)
         self.registrations = RegistrationService(conn)
+        self.groups = GroupService(conn)
 
     def standing_bid(self, run_id: int) -> Bid | None:
         """The highest live bid so far."""
@@ -188,13 +190,20 @@ class BiddingService:
             )
 
     def _require_not_own_unit(self, run: Run, buyer_id: str) -> None:
+        """The own unit rule, applied to the business rather than the number.
+
+        A group consigns under one account and bids under another, and a per
+        account check sees two strangers. That is not a hypothetical, it is how
+        it happens every time.
+        """
         consignment = self.consignments.get(run.consignment_id)
-        if consignment.seller_id == buyer_id:
+        if self.groups.related(consignment.seller_id, buyer_id):
             raise PolicyViolation(
                 "bid.own_unit",
                 "a seller cannot bid on their own consignment",
                 run=run.number,
                 account=buyer_id,
+                seller=consignment.seller_id,
             )
 
     def _require_credit(self, run: Run, buyer_id: str, amount: Money) -> None:

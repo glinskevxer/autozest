@@ -15,6 +15,11 @@ buyer already owes us on account. That second part surprises people. A dealer
 who has bought forty thousand dollars of stock this morning and not paid for it
 has that much less room, whether or not any of it has been drawn yet, because
 the auction is carrying the exposure either way.
+
+Where a group shares credit, the whole pool is one number. Four accounts under
+one group with a shared line have one limit between them, not four, and
+computing it per account is how a group quietly runs at four times the exposure
+their lender agreed to.
 """
 
 from __future__ import annotations
@@ -25,6 +30,7 @@ from datetime import date, datetime
 from enum import Enum
 from typing import Any
 
+from autozest.catalog.groups import GroupService
 from autozest.errors import Conflict, NotFound, PolicyViolation, ValidationError
 from autozest.money import Money, total
 from autozest.settlement.statements import StatementService
@@ -95,6 +101,11 @@ class Capacity:
     limit: Money
     drawn: Money
     on_account: Money
+    pooled_with: tuple[str, ...] = ()
+
+    @property
+    def is_pooled(self) -> bool:
+        return bool(self.pooled_with)
 
     @property
     def available(self) -> Money:
@@ -106,16 +117,20 @@ class Capacity:
         return self.available == Money.zero()
 
     def explain(self) -> str:
-        return (
+        text = (
             f"{self.available} of {self.limit}, "
             f"{self.drawn} drawn and {self.on_account} owed on account"
         )
+        if self.pooled_with:
+            text += f", shared with {', '.join(self.pooled_with)}"
+        return text
 
 
 class FloorplanService:
     def __init__(self, conn: sqlite3.Connection) -> None:
         self.conn = conn
         self.statements = StatementService(conn)
+        self.groups = GroupService(conn)
 
     def open_line(
         self,
@@ -168,8 +183,19 @@ class FloorplanService:
         return self.line(line_id)
 
     def capacity(self, buyer_id: str) -> Capacity:
-        """What is left, counting drawings and what is owed on account."""
-        lines = [line for line in self.lines_for(buyer_id) if line.status.can_draw]
+        """What is left, across whatever accounts share the line.
+
+        A group that shares credit has one limit between all of its accounts.
+        Reading it per account gives a group with four numbers four times the
+        room their lender agreed to.
+        """
+        pool = self.groups.credit_pool(buyer_id)
+        lines = [
+            line
+            for account_id in pool
+            for line in self.lines_for(account_id)
+            if line.status.can_draw
+        ]
         limit = total([line.limit for line in lines])
         drawn = total(
             [
@@ -179,12 +205,13 @@ class FloorplanService:
                 if draw.is_outstanding
             ]
         )
-        owed = self.statements.invoice(buyer_id).balance
+        owed = total([self.statements.invoice(account_id).balance for account_id in pool])
         return Capacity(
             buyer_id=buyer_id,
             limit=limit,
             drawn=drawn,
             on_account=owed if owed.cents > 0 else Money.zero(),
+            pooled_with=tuple(account for account in pool if account != buyer_id),
         )
 
     def require_capacity(self, buyer_id: str, amount: Money) -> Capacity:

@@ -1,6 +1,7 @@
 import pytest
 
 from autozest.block.bidding import BiddingService
+from autozest.catalog.groups import GroupService
 from autozest.errors import Conflict, NotFound, PolicyViolation, ValidationError
 from autozest.money import Money
 from autozest.settlement.floorplan import FloorplanService, LineStatus
@@ -147,3 +148,56 @@ def test_an_exhausted_line_reports_itself(floorplan: FloorplanService) -> None:
     floorplan.draw("L-1", Money.parse("10000.00"))
     assert floorplan.capacity("d-200").is_exhausted
     assert floorplan.capacity("d-200").available == Money.zero()
+
+
+def test_a_group_that_does_not_share_keeps_its_lines_apart(
+    floor: Floor, floorplan: FloorplanService
+) -> None:
+    groups = GroupService(floor.conn)
+    groups.create("g-1", "Ridgeline Group")
+    groups.add("g-1", "d-200")
+    groups.add("g-1", "d-300")
+    line(floorplan, "20000.00")
+    floorplan.open_line("L-2", "d-300", "Ninth Street Finance", Money.parse("30000.00"))
+    capacity = floorplan.capacity("d-200")
+    assert capacity.limit == Money.parse("20000.00")
+    assert not capacity.is_pooled
+
+
+def test_a_sharing_group_has_one_limit_between_it(
+    floor: Floor, floorplan: FloorplanService
+) -> None:
+    groups = GroupService(floor.conn)
+    groups.create("g-1", "Ridgeline Group", shares_credit=True)
+    groups.add("g-1", "d-200")
+    groups.add("g-1", "d-300")
+    line(floorplan, "20000.00")
+    floorplan.open_line("L-2", "d-300", "Ninth Street Finance", Money.parse("30000.00"))
+    capacity = floorplan.capacity("d-200")
+    assert capacity.limit == Money.parse("50000.00")
+    assert capacity.is_pooled
+    assert "shared with d-300" in capacity.explain()
+
+
+def test_a_sibling_drawing_narrows_the_pool(floor: Floor, floorplan: FloorplanService) -> None:
+    groups = GroupService(floor.conn)
+    groups.create("g-1", "Ridgeline Group", shares_credit=True)
+    groups.add("g-1", "d-200")
+    groups.add("g-1", "d-300")
+    line(floorplan, "20000.00")
+    floorplan.open_line("L-2", "d-300", "Ninth Street Finance", Money.parse("30000.00"))
+    floorplan.draw("L-2", Money.parse("28000.00"))
+    assert floorplan.capacity("d-200").available == Money.parse("22000.00")
+
+
+def test_a_sibling_owing_money_narrows_it_too(
+    floor: Floor, floorplan: FloorplanService
+) -> None:
+    groups = GroupService(floor.conn)
+    groups.create("g-1", "Ridgeline Group", shares_credit=True)
+    groups.add("g-1", "d-200")
+    groups.add("g-1", "d-300")
+    line(floorplan, "50000.00")
+    PostingService(floor.conn).post_sale(sold(floor))
+    capacity = floorplan.capacity("d-300")
+    assert capacity.on_account == Money.parse("8545.00")

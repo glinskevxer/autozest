@@ -20,6 +20,7 @@ from autozest.block.sales import SaleRepository
 from autozest.cli.context import Context
 from autozest.defects import DefectClass
 from autozest.money import Money
+from autozest.reporting import claims as claim_report
 from autozest.reporting.text import Align, Column, Table, key_values, money_column
 
 pass_context = click.make_pass_decorator(Context)
@@ -291,3 +292,11 @@ def history(ctx: Context, code: str, run: str) -> None:
     if any(c.status is ClaimStatus.RESOLVED for c in claims):
         service = ResolutionService(ctx.open())
         click.echo(f"hammer now {service.effective_hammer(run_id)}")
+
+
+@arb.command("worklist")
+@pass_context
+def worklist(ctx: Context) -> None:
+    """Everything open, staleest first, with the escalations called out."""
+    for line in claim_report.render(ctx.open()):
+        click.echo(line)

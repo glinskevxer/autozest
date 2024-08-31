@@ -225,3 +225,83 @@ def test_the_class_table_prints_the_policy(desk: Invoke) -> None:
     assert "48 business hours" in output
     assert "policy 2024.1" in output
     assert "3,500.00" in output
+
+
+def decided_claim(desk_cli: Invoke) -> str:
+    sold(desk_cli)
+    claim = desk_cli(
+        "arb",
+        "open",
+        "S-20240312",
+        "A001",
+        "--claimant",
+        "d-200",
+        "--class",
+        "engine",
+        "--summary",
+        "knocking",
+    ).output.split()[1]
+    desk_cli("arb", "take", claim)
+    desk_cli(
+        "arb", "resolve", claim, "repair_allowance", "--amount", "600.00", "--reason", "quote"
+    )
+    return claim
+
+
+def test_raising_and_upholding_an_appeal(desk: Invoke) -> None:
+    claim = decided_claim(desk)
+    raised = desk(
+        "arb", "appeal", claim, "--by", "d-200", "--grounds", "wrong engine quoted"
+    ).output
+    reference = raised.split()[0]
+    assert "raised on" in raised
+    assert "1 open appeals" in desk("arb", "appeals").output
+    settled = desk(
+        "arb", "appeal-decide", reference, "upheld", "--by", "m.byrne", "--note", "stands"
+    ).output
+    assert "upheld" in settled
+    assert "600.00" in settled
+
+
+def test_varying_an_appeal_from_the_command_line(desk: Invoke) -> None:
+    claim = decided_claim(desk)
+    reference = desk(
+        "arb", "appeal", claim, "--by", "d-100", "--grounds", "too much"
+    ).output.split()[0]
+    settled = desk(
+        "arb",
+        "appeal-decide",
+        reference,
+        "varied",
+        "--by",
+        "m.byrne",
+        "--note",
+        "split it",
+        "--amount",
+        "300.00",
+    ).output
+    assert "300.00" in settled
+
+
+def test_a_stranger_cannot_appeal(desk: Invoke) -> None:
+    claim = decided_claim(desk)
+    desk("arb", "appeal", claim, "--by", "d-999", "--grounds", "curious", expect=7)
+
+
+def test_the_worklist_prints(desk: Invoke) -> None:
+    sold(desk)
+    desk(
+        "arb",
+        "open",
+        "S-20240312",
+        "A001",
+        "--claimant",
+        "d-200",
+        "--class",
+        "engine",
+        "--summary",
+        "knocking",
+    )
+    output = desk("arb", "worklist").output
+    assert "arbitration queue" in output
+    assert "1 open" in output

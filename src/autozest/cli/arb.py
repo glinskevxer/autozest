@@ -13,6 +13,7 @@ from datetime import datetime
 
 import click
 
+from autozest.arbitration.appeal import AppealService, AppealStatus
 from autozest.arbitration.claims import ClaimStatus, Resolution
 from autozest.arbitration.desk import ArbitrationDesk
 from autozest.arbitration.resolution import ResolutionService
@@ -300,3 +301,64 @@ def worklist(ctx: Context) -> None:
     """Everything open, staleest first, with the escalations called out."""
     for line in claim_report.render(ctx.open()):
         click.echo(line)
+
+
+@arb.command("appeal")
+@click.argument("claim")
+@click.option("--by", "raised_by", required=True, help="Buyer or seller account.")
+@click.option("--grounds", required=True)
+@pass_context
+def appeal(ctx: Context, claim: str, raised_by: str, grounds: str) -> None:
+    """Challenge a decision. Three business days, either side, once."""
+    raised = AppealService(ctx.open()).raise_appeal(claim, raised_by, grounds)
+    click.echo(f"{raised.id} raised on {claim} by {raised_by}")
+
+
+@arb.command("appeal-decide")
+@click.argument("appeal_reference")
+@click.argument(
+    "outcome", type=click.Choice([s.value for s in AppealStatus if s is not AppealStatus.OPEN])
+)
+@click.option("--by", "decided_by", required=True)
+@click.option("--note", required=True)
+@click.option("--amount", default=None, help="Required when varying.")
+@pass_context
+def appeal_decide(
+    ctx: Context,
+    appeal_reference: str,
+    outcome: str,
+    decided_by: str,
+    note: str,
+    amount: str | None,
+) -> None:
+    """Settle an appeal and push the result back onto the claim."""
+    service = AppealService(ctx.open())
+    decided = service.decide(
+        appeal_reference,
+        AppealStatus(outcome),
+        decided_by=decided_by,
+        note=note,
+        new_outcome=Money.parse(amount) if amount else None,
+    )
+    claim = service.claims.get(decided.claim_id)
+    click.echo(f"{decided.id} {decided.status.value}")
+    click.echo(f"  {claim.id} is now {claim.status.value} at {claim.outcome}")
+
+
+@arb.command("appeals")
+@pass_context
+def appeals(ctx: Context) -> None:
+    """Appeals waiting on a manager."""
+    service = AppealService(ctx.open())
+    table = Table(
+        [
+            Column("appeal", 13),
+            Column("claim", 13),
+            Column("by", 10),
+            Column("grounds", 48),
+        ]
+    )
+    rows = [[a.id, a.claim_id, a.raised_by, a.grounds] for a in service.open_appeals()]
+    for line in table.render(rows):
+        click.echo(line)
+    click.echo(f"{len(rows)} open appeals")

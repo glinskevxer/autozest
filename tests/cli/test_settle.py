@@ -181,3 +181,37 @@ def test_moving_a_limit_from_the_command_line(office: Invoke) -> None:
     office("settle", "credit", "d-200", "--open", "L-1", "Ninth Street", "50000.00")
     moved = office("settle", "credit", "d-200", "--limit", "L-1", "75000.00").output
     assert "75,000.00" in moved
+
+
+def test_opening_and_listing_a_period(office: Invoke) -> None:
+    opened = office(
+        "settle", "period", "open", "--from", "2024-03-01", "--to", "2024-03-31"
+    ).output
+    assert "P-202403 open" in opened
+    assert "P-202403" in office("settle", "period", "list").output
+
+
+def test_open_without_dates_is_a_usage_error(office: Invoke) -> None:
+    office("settle", "period", "open", expect=2)
+
+
+def test_checks_fail_on_an_unposted_sale(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "period", "open", "--from", "2024-03-01", "--to", "2024-03-31")
+    result = office("settle", "period", "checks", "--id", "P-202403", expect=1)
+    assert "FAIL" in result.output
+    assert "checks failed" in result.output
+
+
+def test_the_whole_close(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    office("settle", "period", "open", "--from", "2024-03-01", "--to", "2024-03-31")
+    assert "0 checks failed" in office("settle", "period", "checks", "--id", "P-202403").output
+    assert "is closing" in office("settle", "period", "begin-close", "--id", "P-202403").output
+    closed = office("settle", "period", "close", "--id", "P-202403", "--by", "m.byrne").output
+    assert "closed by m.byrne" in closed
+
+
+def test_the_notice_queue_starts_empty(office: Invoke) -> None:
+    assert "nothing queued" in office("settle", "notices").output

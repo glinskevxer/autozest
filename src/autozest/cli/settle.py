@@ -10,6 +10,8 @@ a phone: one reason per line, in the order they are usually cleared.
 
 from __future__ import annotations
 
+from datetime import date
+
 import click
 
 from autozest.block.models import RunStatus
@@ -17,16 +19,20 @@ from autozest.block.sales import SaleRepository
 from autozest.cli.context import Context
 from autozest.consignment.intake import IntakeService
 from autozest.money import Money
+from autozest.notices import NoticeQueue
 from autozest.reporting.text import Column, Table, key_values, money_column
 from autozest.settlement.fees import Service
 from autozest.settlement.floorplan import FloorplanService, LineStatus
 from autozest.settlement.ledger import Ledger
 from autozest.settlement.payments import Method, PaymentService
+from autozest.settlement.periods import PeriodService
 from autozest.settlement.postings import PostingService
 from autozest.settlement.proceeds import ProceedsService
 from autozest.settlement.statements import Side, StatementService
 
 pass_context = click.make_pass_decorator(Context)
+
+PERIOD_ACTIONS = click.Choice(["open", "checks", "begin-close", "close", "reopen", "list"])
 
 STATEMENT_TABLE = Table(
     [
@@ -266,3 +272,90 @@ def credit(
         click.echo(text)
     capacity = service.capacity(buyer)
     click.echo(capacity.explain())
+
+
+@settle.command("period")
+@click.argument("action", type=PERIOD_ACTIONS)
+@click.option("--from", "starts_on", default=None, help="First day, for open.")
+@click.option("--to", "ends_on", default=None, help="Last day, for open.")
+@click.option("--id", "period_id", default=None)
+@click.option("--by", "closed_by", default=None)
+@click.option("--note", default=None)
+@pass_context
+def period(
+    ctx: Context,
+    action: str,
+    starts_on: str | None,
+    ends_on: str | None,
+    period_id: str | None,
+    closed_by: str | None,
+    note: str | None,
+) -> None:
+    """Open, check and close an accounting period."""
+    service = PeriodService(ctx.open())
+    if action == "open":
+        if not starts_on or not ends_on:
+            raise click.UsageError("open needs --from and --to")
+        opened = service.open_period(date.fromisoformat(starts_on), date.fromisoformat(ends_on))
+        click.echo(f"{opened.id} open, {opened.starts_on} to {opened.ends_on}")
+        return
+    if action == "list":
+        table = Table(
+            [Column("period", 10), Column("from", 12), Column("to", 12), Column("status", 9)]
+        )
+        rows = [[p.id, p.starts_on, p.ends_on, p.status.value] for p in service.periods()]
+        for line in table.render(rows):
+            click.echo(line)
+        return
+    if not period_id:
+        raise click.UsageError(f"{action} needs --id")
+    if action == "checks":
+        failed = 0
+        for check in service.checks(period_id):
+            click.echo(str(check))
+            failed += 0 if check.passed else 1
+        click.echo(f"{failed} checks failed")
+        if failed:
+            raise SystemExit(1)
+        return
+    if action == "begin-close":
+        click.echo(f"{service.begin_close(period_id).id} is closing, entries are stopped")
+        return
+    if action == "reopen":
+        click.echo(f"{service.reopen(period_id).id} is open again")
+        return
+    closed = service.close(period_id, closed_by=closed_by or "unknown", note=note)
+    click.echo(f"{closed.id} closed by {closed.closed_by}")
+
+
+@settle.command("notices")
+@click.option("--party", default=None)
+@click.option("--stuck", "only_stuck", is_flag=True)
+@pass_context
+def notices(ctx: Context, party: str | None, only_stuck: bool) -> None:
+    """What is waiting to go out."""
+    queue = NoticeQueue(ctx.open())
+    if only_stuck:
+        found = queue.stuck()
+    elif party:
+        found = queue.for_party(party)
+    else:
+        found = queue.pending()
+    table = Table(
+        [
+            Column("notice", 13),
+            Column("kind", 16),
+            Column("party", 10),
+            Column("status", 10),
+            Column("subject", 40),
+        ]
+    )
+    rows = [[n.id, n.kind, n.party_id, n.status.value, n.subject] for n in found]
+    for line in table.render(rows):
+        click.echo(line)
+    counts = queue.counts()
+    summary = ", ".join(
+        f"{status.value} {count}"
+        for status, count in sorted(counts.items(), key=lambda pair: pair[0].value)
+    )
+    click.echo(f"{len(rows)} listed. {summary or 'nothing queued'}")

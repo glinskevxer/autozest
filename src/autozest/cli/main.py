@@ -23,6 +23,7 @@ from autozest.cli.context import Context
 from autozest.cli.report import report
 from autozest.cli.settle import settle
 from autozest.cli.title import title
+from autozest.cli.yard import gate, yard
 from autozest.errors import AutozestError, exit_status_for
 from autozest.storage.db import integrity_problems
 from autozest.storage.migrator import current_version, load_migrations, pending
@@ -85,6 +86,8 @@ cli.add_command(arb)
 cli.add_command(title)
 cli.add_command(settle)
 cli.add_command(admin)
+cli.add_command(yard)
+cli.add_command(gate)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

@@ -25,6 +25,7 @@ from autozest.cli.settle import settle
 from autozest.cli.title import title
 from autozest.cli.yard import gate, yard
 from autozest.errors import AutozestError, exit_status_for
+from autozest.logs import LEVELS, configure, log
 from autozest.storage.db import integrity_problems
 from autozest.storage.migrator import current_version, load_migrations, pending
 
@@ -34,11 +35,23 @@ pass_context = click.make_pass_decorator(Context)
 @click.group()
 @click.option("--config", "config_path", default=None, help="Path to autozest.toml.")
 @click.option("--db", "database", default=None, help="Path to the database file.")
+@click.option(
+    "--log",
+    "log_level",
+    default="warning",
+    type=click.Choice(sorted(LEVELS)),
+    show_default=True,
+    help="How much to say on stderr.",
+)
 @click.version_option(__version__, prog_name="az")
 @click.pass_context
-def cli(ctx: click.Context, config_path: str | None, database: str | None) -> None:
+def cli(
+    ctx: click.Context, config_path: str | None, database: str | None, log_level: str
+) -> None:
     """Consignment, block and settlement for a wholesale vehicle auction."""
+    configure(log_level)
     ctx.obj = Context.build(config_path, database)
+    log.debug("cli.start", command=ctx.invoked_subcommand, db=database)
     ctx.call_on_close(ctx.obj.close)
 
 
@@ -101,6 +114,7 @@ def run(argv: list[str] | None = None, **extra: Any) -> int:
         click.echo("aborted", err=True)
         return 130
     except AutozestError as exc:
+        log.error("cli.failed", code=exc.code, message=exc.message, **exc.context)
         click.echo(f"error: {exc}", err=True)
         return exit_status_for(exc)
     except SystemExit as exc:

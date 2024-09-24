@@ -55,3 +55,18 @@ def test_run_maps_an_unknown_command_to_the_click_status() -> None:
 
 def test_run_of_help_exits_zero() -> None:
     assert invoke("--help").exit_code == 0
+
+
+def test_a_failure_is_logged_when_asked(db_path: Path) -> None:
+    result = invoke("--log", "error", "--db", str(db_path), "status")
+    assert result.exit_code == 3
+    assert "cli.failed" in result.stderr
+    assert "code=config" in result.stderr
+
+
+def test_the_start_line_only_shows_at_debug(db_path: Path) -> None:
+    quiet = invoke("--db", str(db_path), "status")
+    assert "cli.start" not in quiet.stderr
+    assert "error:" in quiet.stderr
+    noisy = invoke("--log", "debug", "--db", str(db_path), "status")
+    assert "cli.start command=status" in noisy.stderr

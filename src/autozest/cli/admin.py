@@ -19,6 +19,7 @@ import click
 
 from autozest.audit import AuditLog
 from autozest.cli.context import Context
+from autozest.health import examine
 from autozest.reporting.text import Align, Column, Table, key_values
 from autozest.storage.db import connect, integrity_problems, table_names
 from autozest.storage.migrator import current_version, load_migrations, pending
@@ -166,3 +167,43 @@ def seed(ctx: Context, units: int, seed_value: int, sale_day: str | None) -> Non
         f"{built.sale_code}  {built.units} units, {built.sold} sold, "
         f"{built.no_sale} no sale, {built.accounts} accounts"
     )
+
+
+@admin.command("health")
+@click.option("--soft/--no-soft", default=True, help="Include the things that are not urgent.")
+@pass_context
+def health(ctx: Context, soft: bool) -> None:
+    """Can the building open this morning."""
+    report = examine(ctx.open(), ctx.settings)
+    for check in report.checks:
+        if not soft and check.severity.value == "soft" and check.passed:
+            continue
+        click.echo(str(check))
+    click.echo(report.summary())
+    if not report.can_open:
+        raise SystemExit(1)
+
+
+@admin.command("config")
+@click.option("--show", is_flag=True, help="Print what was loaded.")
+@pass_context
+def show_config(ctx: Context, show: bool) -> None:
+    """Check the configuration file loads, and what it says."""
+    settings = ctx.settings
+    for line in key_values(
+        [
+            ("auction", f"{settings.auction_name} ({settings.auction_code})"),
+            ("database", settings.database),
+            ("opens", settings.opens),
+            ("closes", settings.closes),
+            ("closures", len(settings.extra_closures)),
+            ("openings", len(settings.extra_openings)),
+            ("sections", ", ".join(sorted(settings.sections)) or "none"),
+        ]
+    ):
+        click.echo(line)
+    if show:
+        for name in sorted(settings.sections):
+            click.echo(f"[{name}]")
+            for key, value in sorted(settings.section(name).items()):
+                click.echo(f"  {key} = {value}")

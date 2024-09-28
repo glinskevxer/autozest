@@ -94,3 +94,20 @@ def test_a_seeded_database_still_passes_its_own_checks(initialised: Invoke) -> N
 def test_a_seeded_sale_recaps(initialised: Invoke) -> None:
     initialised("admin", "seed", "--units", "12")
     assert "sale recap" in initialised("report", "recap", "S-20240312").output
+
+
+def test_health_on_a_fresh_database(initialised: Invoke) -> None:
+    output = initialised("admin", "health").output
+    assert "healthy" in output
+    assert "ok   ledger" in output
+
+
+def test_health_can_hide_the_quiet_checks(initialised: Invoke) -> None:
+    output = initialised("admin", "health", "--no-soft").output
+    assert "calendar" not in output
+
+
+def test_the_config_command_prints_what_loaded(initialised: Invoke) -> None:
+    output = initialised("admin", "config").output
+    assert "Autozest Remarketing" in output
+    assert "opens" in output

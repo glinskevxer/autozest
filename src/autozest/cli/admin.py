@@ -21,6 +21,8 @@ from autozest.audit import AuditLog
 from autozest.cli.context import Context
 from autozest.health import examine
 from autozest.reporting.text import Align, Column, Table, key_values
+from autozest.retention import archive_sale, prune
+from autozest.retention import candidates as retention_candidates
 from autozest.storage.db import connect, integrity_problems, table_names
 from autozest.storage.migrator import current_version, load_migrations, pending
 from autozest.tools.check_migrations import problems as migration_problems
@@ -207,3 +209,71 @@ def show_config(ctx: Context, show: bool) -> None:
             click.echo(f"[{name}]")
             for key, value in sorted(settings.section(name).items()):
                 click.echo(f"  {key} = {value}")
+
+
+@admin.command("retention")
+@click.option("--apply", "really", is_flag=True, help="Actually delete. Default is a dry run.")
+@pass_context
+def retention(ctx: Context, really: bool) -> None:
+    """What is old enough to prune, and optionally prune it."""
+    conn = ctx.open()
+    table = Table(
+        [
+            Column("table", 20),
+            Column("rows", 10, Align.RIGHT),
+            Column("keep days", 10, Align.RIGHT),
+            Column("cutoff", 12),
+        ]
+    )
+    rows = [[c.table, c.rows, c.keep_days, c.cutoff] for c in retention_candidates(conn)]
+    for line in table.render(rows):
+        click.echo(line)
+    result = prune(conn, dry_run=not really)
+    verb = "removed" if really else "would remove"
+    click.echo(f"{verb} {result.total} rows across {len(result.removed)} tables")
+
+
+@admin.command("archive")
+@click.argument("code")
+@click.argument("target")
+@pass_context
+def archive(ctx: Context, code: str, target: str) -> None:
+    """Copy a closed sale out to its own file. Removes nothing."""
+    written = archive_sale(ctx.open(), code, target)
+    for name, count in sorted(written.tables.items()):
+        click.echo(f"  {name:<14} {count}")
+    click.echo(f"{written.rows} rows to {written.path}")
+
+
+@admin.command("sizes")
+@click.option("--top", default=10, show_default=True)
+@pass_context
+def sizes(ctx: Context, top: int) -> None:
+    """Which tables are actually taking the space.
+
+    Row counts alone mislead. A million audit lines of forty characters are
+    smaller than ten thousand notice bodies, and the person deciding what to
+    archive needs the second number.
+    """
+    conn = ctx.open()
+    measured: list[tuple[str, int, int]] = []
+    for name in table_names(conn):
+        count = int(conn.execute(f"SELECT COUNT(*) AS n FROM {name}").fetchone()["n"])
+        payload = int(
+            conn.execute(
+                f"SELECT COALESCE(SUM(LENGTH(CAST(t.rowid AS TEXT))), 0) AS n FROM {name} t"
+            ).fetchone()["n"]
+        )
+        measured.append((name, count, payload))
+    measured.sort(key=lambda row: -row[1])
+    rows: list[list[object]] = [[name, count, payload] for name, count, payload in measured]
+    table = Table(
+        [
+            Column("table", 26),
+            Column("rows", 10, Align.RIGHT),
+            Column("key bytes", 12, Align.RIGHT),
+        ]
+    )
+    for line in table.render(rows[:top]):
+        click.echo(line)
+    click.echo(f"{len(measured)} tables, {sum(count for _, count, _ in measured)} rows")

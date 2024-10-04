@@ -111,3 +111,42 @@ def test_the_config_command_prints_what_loaded(initialised: Invoke) -> None:
     output = initialised("admin", "config").output
     assert "Autozest Remarketing" in output
     assert "opens" in output
+
+
+def test_retention_is_a_dry_run_by_default(initialised: Invoke) -> None:
+    output = initialised("admin", "retention").output
+    assert "would remove 0 rows" in output
+    assert "audit_event" in output
+
+
+def test_retention_can_be_applied(initialised: Invoke) -> None:
+    assert "removed 0 rows" in initialised("admin", "retention", "--apply").output
+
+
+def test_archiving_a_seeded_sale(initialised: Invoke, tmp_path: Path) -> None:
+    initialised("admin", "seed", "--units", "6")
+    initialised("sale", "close", "S-20240312")
+    target = tmp_path / "S-20240312.sqlite3"
+    output = initialised("admin", "archive", "S-20240312", str(target)).output
+    assert "rows to" in output
+    assert target.exists()
+
+
+def test_archiving_an_open_sale_exits_seven(initialised: Invoke, tmp_path: Path) -> None:
+    initialised("admin", "seed", "--units", "4")
+    initialised("admin", "archive", "S-20240312", str(tmp_path / "a.sqlite3"), expect=7)
+
+
+def test_sizes_ranks_the_tables(initialised: Invoke) -> None:
+    initialised("admin", "seed", "--units", "8")
+    output = initialised("admin", "sizes", "--top", "5").output
+    assert "rows" in output
+    assert "tables," in output
+
+
+def test_sizes_counts_only_the_migration_rows_on_a_fresh_database(
+    initialised: Invoke,
+) -> None:
+    output = initialised("admin", "sizes").output
+    assert "schema_migration" in output
+    assert "tables, 19 rows" in output

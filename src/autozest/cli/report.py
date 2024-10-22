@@ -10,7 +10,7 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import aging, exports
+from autozest.reporting import aging, exports, reference
 from autozest.reporting import recap as recap_report
 from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
@@ -138,3 +138,21 @@ def buyers(ctx: Context, sale_code: str | None) -> None:
     for line in table.render(rows):
         click.echo(line)
     click.echo(f"{len(rows)} buyers")
+
+
+@report.command("reference")
+@click.argument("section", required=False, type=click.Choice(sorted(reference.SECTIONS)))
+@pass_context
+def rules(ctx: Context, section: str | None) -> None:
+    """The rule card, printed from the rules themselves.
+
+    Every laminated card on a counter is out of date. This one cannot be: if
+    the window here is wrong then the system is wrong, which is a much better
+    problem than a printout nobody trusts.
+    """
+    if section:
+        for line in reference.SECTIONS[section]():
+            click.echo(line)
+        return
+    for line in reference.render():
+        click.echo(line)

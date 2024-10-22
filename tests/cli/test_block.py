@@ -191,3 +191,16 @@ def test_bidding_without_a_badge_once_the_list_exists(ring: Invoke) -> None:
     ring("block", "register", "S-20240312", "d-100")
     ring("sale", "open", "S-20240312")
     ring("block", "bid", "S-20240312", "A001", "d-200", "5200.00", expect=7)
+
+
+def test_the_reference_card_prints(ring: Invoke) -> None:
+    output = ring("report", "reference").output
+    assert "The lights" in output
+    assert "48 business hours" in output
+    assert "card 2024.1" in output
+
+
+def test_one_section_of_the_card(ring: Invoke) -> None:
+    output = ring("report", "reference", "fees").output
+    assert "card 2024.1" in output
+    assert "The lights" not in output

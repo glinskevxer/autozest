@@ -147,6 +147,9 @@ def test_sizes_ranks_the_tables(initialised: Invoke) -> None:
 def test_sizes_counts_only_the_migration_rows_on_a_fresh_database(
     initialised: Invoke,
 ) -> None:
+    from autozest.storage.migrator import load_migrations
+
     output = initialised("admin", "sizes").output
     assert "schema_migration" in output
-    assert "tables, 19 rows" in output
+    assert "rows" in output
+    assert f" {len(load_migrations())} rows" in output

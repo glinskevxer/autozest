@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import click
 
+from autozest.cli import lookup
 from autozest.cli.context import Context
-from autozest.consignment.intake import IntakeService
 from autozest.reporting.text import Column, Table, key_values
 from autozest.title.branding import TitleBrand
 from autozest.title.service import TitleService, TitleStatus
@@ -31,10 +31,6 @@ TITLE_TABLE = Table(
 )
 
 
-def _consignment(ctx: Context, token: str) -> str:
-    return IntakeService(ctx.open()).find(token).id
-
-
 @click.group()
 def title() -> None:
     """Log titles in, chase the missing ones and send them out."""
@@ -47,7 +43,7 @@ def title() -> None:
 def expect(ctx: Context, token: str, actor: str) -> None:
     """Open a title record on a consigned unit."""
     service = TitleService(ctx.open())
-    record = service.expect(_consignment(ctx, token), actor=actor)
+    record = service.expect(lookup.consignment_id(ctx, token), actor=actor)
     click.echo(f"{record.consignment_id} title is {record.status.value}")
 
 
@@ -69,7 +65,7 @@ def receive(
     """Log a title in off the document in front of you."""
     service = TitleService(ctx.open())
     record, surprise = service.receive(
-        _consignment(ctx, token),
+        lookup.consignment_id(ctx, token),
         brand=TitleBrand(brand),
         issuing_state=issuing_state,
         title_number=title_number,
@@ -94,7 +90,7 @@ def mark(ctx: Context, token: str, status: str, detail: str | None, actor: str) 
     """Move a title record, for a duplicate application or an attorney lane."""
     service = TitleService(ctx.open())
     record = service.mark(
-        _consignment(ctx, token), TitleStatus(status), actor=actor, detail=detail
+        lookup.consignment_id(ctx, token), TitleStatus(status), actor=actor, detail=detail
     )
     click.echo(f"{record.consignment_id} title is {record.status.value}")
 
@@ -106,7 +102,7 @@ def mark(ctx: Context, token: str, status: str, detail: str | None, actor: str) 
 def send(ctx: Context, token: str, actor: str) -> None:
     """Send a title to the buyer, if nothing is holding it."""
     service = TitleService(ctx.open())
-    record = service.send(_consignment(ctx, token), actor=actor)
+    record = service.send(lookup.consignment_id(ctx, token), actor=actor)
     click.echo(f"{record.consignment_id} title sent to the buyer")
 
 
@@ -117,7 +113,7 @@ def send(ctx: Context, token: str, actor: str) -> None:
 def release(ctx: Context, token: str, actor: str) -> None:
     """Give a title back on a unit that did not sell."""
     service = TitleService(ctx.open())
-    record = service.release_to_seller(_consignment(ctx, token), actor=actor)
+    record = service.release_to_seller(lookup.consignment_id(ctx, token), actor=actor)
     click.echo(f"{record.consignment_id} title back to the seller")
 
 
@@ -127,7 +123,7 @@ def release(ctx: Context, token: str, actor: str) -> None:
 def holds(ctx: Context, token: str) -> None:
     """Why a title cannot go out yet."""
     service = TitleService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     reasons = service.holds(consignment_id)
     for reason in reasons:
         click.echo(reason)
@@ -140,7 +136,7 @@ def holds(ctx: Context, token: str) -> None:
 def show(ctx: Context, token: str) -> None:
     """One title and everywhere it has been."""
     service = TitleService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     record = service.get(consignment_id)
     for line in key_values(
         [

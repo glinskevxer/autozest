@@ -9,17 +9,13 @@ from __future__ import annotations
 
 import click
 
+from autozest.cli import lookup
 from autozest.cli.context import Context
-from autozest.consignment.intake import IntakeService
 from autozest.consignment.release import ReleaseService
 from autozest.consignment.yard import Space, SpaceStatus, YardService
 from autozest.reporting.text import Align, Column, Table, key_values
 
 pass_context = click.make_pass_decorator(Context)
-
-
-def _consignment(ctx: Context, token: str) -> str:
-    return IntakeService(ctx.open()).find(token).id
 
 
 @click.group()
@@ -54,7 +50,7 @@ def add_space(
 def put(ctx: Context, token: str, space_id: str, moved_by: str, reason: str | None) -> None:
     """Park a unit."""
     service = YardService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     service.put(consignment_id, space_id, moved_by, reason)
     click.echo(f"{consignment_id} is in {service.space(space_id).label}")
 
@@ -65,7 +61,7 @@ def put(ctx: Context, token: str, space_id: str, moved_by: str, reason: str | No
 def find(ctx: Context, token: str) -> None:
     """Where is it."""
     service = YardService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     space_id = service.where_is(consignment_id)
     if space_id is None:
         click.echo(f"{consignment_id} is not in the yard")
@@ -81,7 +77,7 @@ def find(ctx: Context, token: str) -> None:
 def out(ctx: Context, token: str, moved_by: str, reason: str) -> None:
     """Record a unit leaving the yard."""
     service = YardService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     service.take_out(consignment_id, moved_by, reason)
     click.echo(f"{consignment_id} has left the yard")
 
@@ -116,7 +112,7 @@ def occupancy(ctx: Context) -> None:
 def history(ctx: Context, token: str) -> None:
     """Everywhere a unit has been."""
     service = YardService(ctx.open())
-    consignment_id = _consignment(ctx, token)
+    consignment_id = lookup.consignment_id(ctx, token)
     table = Table(
         [
             Column("when", 20),
@@ -149,7 +145,7 @@ def gate() -> None:
 def keys_in(ctx: Context, token: str, tag: str, count: int, location: str) -> None:
     """Log a set of keys into the cabinet."""
     service = ReleaseService(ctx.open())
-    keys = service.take_keys(_consignment(ctx, token), tag, count, location)
+    keys = service.take_keys(lookup.consignment_id(ctx, token), tag, count, location)
     click.echo(f"{keys.count} keys on tag {keys.tag} in {keys.location}")
 
 
@@ -160,7 +156,7 @@ def keys_in(ctx: Context, token: str, tag: str, count: int, location: str) -> No
 def keys_out(ctx: Context, token: str, to: str) -> None:
     """Hand the keys across."""
     service = ReleaseService(ctx.open())
-    keys = service.hand_over(_consignment(ctx, token), to)
+    keys = service.hand_over(lookup.consignment_id(ctx, token), to)
     click.echo(f"tag {keys.tag} to {to}")
 
 
@@ -194,7 +190,9 @@ def release(
 ) -> None:
     """Let a unit off the site."""
     service = ReleaseService(ctx.open())
-    released = service.release(_consignment(ctx, token), to, authorised_by, override=override)
+    released = service.release(
+        lookup.consignment_id(ctx, token), to, authorised_by, override=override
+    )
     click.echo(f"{released.id} released to {to}")
     if released.was_overridden:
         click.echo(f"  overridden: {released.holds_overridden}", err=True)

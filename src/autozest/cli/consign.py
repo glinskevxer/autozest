@@ -13,6 +13,7 @@ from pathlib import Path
 
 import click
 
+from autozest.cli import lookup
 from autozest.cli.context import Context
 from autozest.consignment.importer import ConsignmentImporter
 from autozest.consignment.intake import Arrival, IntakeService
@@ -178,7 +179,7 @@ def inspect() -> None:
 def open_report(ctx: Context, token: str, inspector: str) -> None:
     """Start a condition report on a unit that is through the gate."""
     conn = ctx.open()
-    unit = IntakeService(conn).find(token)
+    unit = lookup.consignment(ctx, token)
     report = InspectionService(conn).open_report(unit.id, inspector)
     click.echo(f"opened {report.id} on {unit.id}")
 

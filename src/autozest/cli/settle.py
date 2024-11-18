@@ -16,8 +16,8 @@ import click
 
 from autozest.block.models import RunStatus
 from autozest.block.sales import SaleRepository
+from autozest.cli import lookup
 from autozest.cli.context import Context
-from autozest.consignment.intake import IntakeService
 from autozest.money import Money
 from autozest.notices import NoticeQueue
 from autozest.reporting.text import Column, Table, key_values, money_column
@@ -145,7 +145,7 @@ def statement(ctx: Context, party: str, side: str, sale_code: str | None) -> Non
 def holds(ctx: Context, token: str) -> None:
     """Why a seller has not been paid yet."""
     conn = ctx.open()
-    consignment_id = IntakeService(conn).find(token).id
+    consignment_id = lookup.consignment_id(ctx, token)
     position = ProceedsService(conn).position(consignment_id)
     click.echo(f"{consignment_id}  seller {position.seller_id}  gross {position.gross}")
     for hold in position.holds:
@@ -170,7 +170,7 @@ def release(
 ) -> None:
     """Pay a seller, once nothing is holding it."""
     conn = ctx.open()
-    consignment_id = IntakeService(conn).find(token).id
+    consignment_id = lookup.consignment_id(ctx, token)
     paid = ProceedsService(conn).release(
         consignment_id,
         lien=Money.parse(lien) if lien else None,

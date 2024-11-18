@@ -17,7 +17,7 @@ from autozest.arbitration.appeal import AppealService, AppealStatus
 from autozest.arbitration.claims import ClaimStatus, Resolution
 from autozest.arbitration.desk import ArbitrationDesk
 from autozest.arbitration.resolution import ResolutionService
-from autozest.block.sales import SaleRepository
+from autozest.cli import lookup
 from autozest.cli.context import Context
 from autozest.defects import DefectClass
 from autozest.money import Money
@@ -40,12 +40,6 @@ CLAIM_TABLE = Table(
 )
 
 
-def _run_id(ctx: Context, code: str, number: str) -> int:
-    run = SaleRepository(ctx.open()).require_run(code, number)
-    assert run.id is not None
-    return run.id
-
-
 @click.group()
 def arb() -> None:
     """The arbitration desk."""
@@ -62,7 +56,7 @@ def assess(ctx: Context, code: str, run: str, defect: str | None) -> None:
     """Would a claim be heard right now, and until when."""
     conn = ctx.open()
     desk = ArbitrationDesk(conn)
-    run_id = _run_id(ctx, code, run)
+    run_id = lookup.run_id(ctx, code, run)
     if defect is None:
         open_now = desk.open_classes(run_id)
         for name in sorted(c.value for c in open_now):
@@ -99,7 +93,7 @@ def open_claim(
     """Take a claim, or refuse it naming the rule."""
     desk = ArbitrationDesk(ctx.open())
     claim = desk.open_claim(
-        _run_id(ctx, code, run),
+        lookup.run_id(ctx, code, run),
         claimant,
         DefectClass(defect),
         summary,
@@ -241,7 +235,7 @@ def inspect_run(
 ) -> None:
     """Order a post sale inspection, or record what it found."""
     desk = ArbitrationDesk(ctx.open())
-    run_id = _run_id(ctx, code, run)
+    run_id = lookup.run_id(ctx, code, run)
     if complete:
         check = desk.complete_inspection(run_id, passed=passed, findings=findings)
         state = "passed" if check.passed else "failed"
@@ -280,7 +274,7 @@ def classes(ctx: Context) -> None:
 def history(ctx: Context, code: str, run: str) -> None:
     """Every claim ever brought on one unit."""
     desk = ArbitrationDesk(ctx.open())
-    run_id = _run_id(ctx, code, run)
+    run_id = lookup.run_id(ctx, code, run)
     claims = desk.claims.for_run(run_id)
     settled = desk.claims.settled_classes(run_id)
     rows = [

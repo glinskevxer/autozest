@@ -17,6 +17,7 @@ from autozest.block.catalogue import CatalogueService
 from autozest.block.models import RunStatus
 from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
+from autozest.cli import lookup
 from autozest.cli.context import Context
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.inspection.announcements import Light
@@ -164,7 +165,7 @@ def block() -> None:
 def bid(ctx: Context, code: str, run: str, buyer: str, amount: str) -> None:
     """Take a bid on a run."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     placed = BiddingService(conn).bid(found.id, buyer, Money.parse(amount))
     click.echo(f"{found.number}  {placed.amount}  {buyer}")
@@ -177,7 +178,7 @@ def bid(ctx: Context, code: str, run: str, buyer: str, amount: str) -> None:
 def fall(ctx: Context, code: str, run: str) -> None:
     """Drop the hammer."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     settled = BiddingService(conn).fall(found.id)
     if settled.status is RunStatus.SOLD:
@@ -196,7 +197,7 @@ def fall(ctx: Context, code: str, run: str) -> None:
 def counter(ctx: Context, code: str, run: str, amount: str) -> None:
     """The seller comes back with their own number."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     made = BiddingService(conn).counter(found.id, Money.parse(amount))
     click.echo(f"{found.number} countered at {made.amount}")
@@ -209,7 +210,7 @@ def counter(ctx: Context, code: str, run: str, amount: str) -> None:
 def accept(ctx: Context, code: str, run: str) -> None:
     """Take the standing offer on a unit that is on if."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     settled = BiddingService(conn).accept(found.id)
     click.echo(f"{settled.number} sold {settled.hammer} to {settled.buyer_id}")
@@ -222,7 +223,7 @@ def accept(ctx: Context, code: str, run: str) -> None:
 def decline(ctx: Context, code: str, run: str) -> None:
     """Nobody moved, so the unit did not sell."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     click.echo(f"{BiddingService(conn).decline(found.id).number} no sale")
 
@@ -260,7 +261,7 @@ def if_list(ctx: Context, code: str) -> None:
 def show_run(ctx: Context, code: str, run: str) -> None:
     """One run, its bids and where it stands."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     bidding = BiddingService(conn)
     unit = ConsignmentRepository(conn).get(found.consignment_id)
@@ -294,7 +295,7 @@ def show_run(ctx: Context, code: str, run: str) -> None:
 def relight(ctx: Context, code: str, run: str, light: str, reason: str) -> None:
     """Move a light by hand, before the sale opens."""
     conn = ctx.open()
-    found = SaleRepository(conn).require_run(code, run)
+    found = lookup.run(ctx, code, run)
     assert found.id is not None
     moved = CatalogueService(conn).relight(found.id, Light(light), reason)
     click.echo(f"{moved.number} is now {moved.light.value}")

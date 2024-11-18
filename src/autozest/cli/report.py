@@ -10,7 +10,7 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import aging, exports, reference
+from autozest.reporting import aging, exports, reference, turnaround
 from autozest.reporting import recap as recap_report
 from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
@@ -155,4 +155,12 @@ def rules(ctx: Context, section: str | None) -> None:
             click.echo(line)
         return
     for line in reference.render():
+        click.echo(line)
+
+
+@report.command("turnaround")
+@pass_context
+def turnaround_report(ctx: Context) -> None:
+    """How long claims and titles take. Medians, not means."""
+    for line in turnaround.render(ctx.open(), ctx.settings.calendar):
         click.echo(line)

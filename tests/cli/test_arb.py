@@ -9,13 +9,17 @@ from autozest.catalog.accounts import Account, AccountClass, AccountRepository
 from autozest.catalog.vehicles import Vehicle, VehicleRepository
 from autozest.storage.db import connect
 from autozest.vin import Vin
-from tests.cli.conftest import Invoke
+from tests.cli.conftest import Invoke, invoke
 
 VINS = ["1HGCM82633A004352", "5YJ3E1EA0KF000316"]
 
 
+DB_PATH: list[Path] = [Path("unset")]
+
+
 @pytest.fixture()
 def desk(initialised: Invoke, db_path: Path) -> Invoke:
+    DB_PATH[0] = db_path
     conn: sqlite3.Connection = connect(db_path)
     accounts = AccountRepository(conn)
     for account_id, name in (("d-100", "Ridgeline Motors"), ("d-200", "Kestrel Auto")):
@@ -305,3 +309,15 @@ def test_the_worklist_prints(desk: Invoke) -> None:
     output = desk("arb", "worklist").output
     assert "arbitration queue" in output
     assert "1 open" in output
+
+
+def test_an_amended_policy_file_reaches_the_command_line(desk: Invoke, tmp_path: Path) -> None:
+    config = tmp_path / "autozest.toml"
+    config.write_text(
+        "[arbitration]\nversion = '2025.1'\n\n[arbitration.engine]\nwindow = 240\n"
+        "unit = 'business_hours'\n"
+    )
+    sold(desk)
+    output = invoke("--config", str(config), "--db", str(DB_PATH[0]), "arb", "classes").output
+    assert "policy 2025.1" in output
+    assert "240 business hours" in output

@@ -154,7 +154,7 @@ def rules(ctx: Context, section: str | None) -> None:
         for line in reference.SECTIONS[section]():
             click.echo(line)
         return
-    for line in reference.render():
+    for line in reference.render(ctx.policies.arbitration, ctx.policies.fees):
         click.echo(line)
 
 

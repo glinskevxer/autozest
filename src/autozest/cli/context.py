@@ -14,6 +14,8 @@ from pathlib import Path
 
 from autozest.config import Settings
 from autozest.config import load as load_settings
+from autozest.policies import Policies
+from autozest.policies import build as build_policies
 from autozest.storage.db import connect
 from autozest.storage.migrator import current_version, migrate
 
@@ -25,12 +27,25 @@ class Context:
     settings: Settings = field(default_factory=Settings)
     database: Path | None = None
     _conn: sqlite3.Connection | None = field(default=None, repr=False)
+    _policies: Policies | None = field(default=None, repr=False)
 
     @classmethod
     def build(cls, config_path: str | None, database: str | None) -> Context:
         settings = load_settings(config_path)
         target = Path(database) if database else settings.database_path()
         return cls(settings=settings, database=target)
+
+    @property
+    def policies(self) -> Policies:
+        """The rules this invocation runs under, from the settings file.
+
+        Built here rather than in each command, because the last arrangement
+        had a fee card amendment reaching the invoice and not the reference
+        printout.
+        """
+        if self._policies is None:
+            self._policies = build_policies(self.settings)
+        return self._policies
 
     @property
     def path(self) -> Path:

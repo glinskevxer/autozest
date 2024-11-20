@@ -55,7 +55,7 @@ def arb() -> None:
 def assess(ctx: Context, code: str, run: str, defect: str | None) -> None:
     """Would a claim be heard right now, and until when."""
     conn = ctx.open()
-    desk = ArbitrationDesk(conn)
+    desk = ArbitrationDesk(conn, ctx.policies.arbitration, ctx.policies.calendar)
     run_id = lookup.run_id(ctx, code, run)
     if defect is None:
         open_now = desk.open_classes(run_id)
@@ -91,7 +91,7 @@ def open_claim(
     actor: str,
 ) -> None:
     """Take a claim, or refuse it naming the rule."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     claim = desk.open_claim(
         lookup.run_id(ctx, code, run),
         claimant,
@@ -160,7 +160,7 @@ def withdraw(ctx: Context, claim: str, reason: str, actor: str) -> None:
 @pass_context
 def queue(ctx: Context, claimant: str | None) -> None:
     """Everything still open."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     claims = desk.claims.for_claimant(claimant) if claimant else desk.queue()
     rows = [
         [
@@ -183,7 +183,7 @@ def queue(ctx: Context, claimant: str | None) -> None:
 @pass_context
 def show(ctx: Context, claim: str) -> None:
     """One claim and its whole history."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     found = desk.claims.get(claim)
     run = desk.sales.run(found.run_id)
     for line in key_values(
@@ -234,7 +234,7 @@ def inspect_run(
     ctx: Context, code: str, run: str, complete: bool, passed: bool, findings: str | None
 ) -> None:
     """Order a post sale inspection, or record what it found."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     run_id = lookup.run_id(ctx, code, run)
     if complete:
         check = desk.complete_inspection(run_id, passed=passed, findings=findings)
@@ -249,7 +249,7 @@ def inspect_run(
 @pass_context
 def classes(ctx: Context) -> None:
     """The defect classes and the window each one carries."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     table = Table(
         [
             Column("class", 18),
@@ -273,7 +273,7 @@ def classes(ctx: Context) -> None:
 @pass_context
 def history(ctx: Context, code: str, run: str) -> None:
     """Every claim ever brought on one unit."""
-    desk = ArbitrationDesk(ctx.open())
+    desk = ArbitrationDesk(ctx.open(), ctx.policies.arbitration, ctx.policies.calendar)
     run_id = lookup.run_id(ctx, code, run)
     claims = desk.claims.for_run(run_id)
     settled = desk.claims.settled_classes(run_id)

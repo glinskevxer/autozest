@@ -56,7 +56,7 @@ def post(ctx: Context, code: str, number: str | None) -> None:
     """Write the sale to the ledger."""
     conn = ctx.open()
     sales = SaleRepository(conn)
-    posting = PostingService(conn)
+    posting = PostingService(conn, ctx.policies.fees)
     runs = (
         [sales.require_run(code, number)]
         if number
@@ -88,7 +88,7 @@ def add_service(ctx: Context, code: str, run: str, service: str, amount: str | N
     conn = ctx.open()
     found = SaleRepository(conn).require_run(code, run)
     assert found.id is not None
-    entry = PostingService(conn).post_service(
+    entry = PostingService(conn, ctx.policies.fees).post_service(
         found.id, Service(service), amount=Money.parse(amount) if amount else None
     )
     click.echo(f"{found.number} {service} {entry.total}")

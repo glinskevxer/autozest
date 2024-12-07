@@ -10,7 +10,7 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import aging, exports, reference, turnaround
+from autozest.reporting import aging, disclosure, exports, reference, turnaround
 from autozest.reporting import recap as recap_report
 from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
@@ -164,3 +164,15 @@ def turnaround_report(ctx: Context) -> None:
     """How long claims and titles take. Medians, not means."""
     for line in turnaround.render(ctx.open(), ctx.settings.calendar):
         click.echo(line)
+
+
+@report.command("disclosure")
+@click.argument("code")
+@pass_context
+def disclosure_audit(ctx: Context, code: str) -> None:
+    """Did we call what the titles turned out to say."""
+    lines = disclosure.render(ctx.open(), code)
+    for line in lines:
+        click.echo(line)
+    if "needs looking at" in lines[-1]:
+        raise SystemExit(1)

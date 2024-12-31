@@ -153,3 +153,26 @@ def test_sizes_counts_only_the_migration_rows_on_a_fresh_database(
     assert "schema_migration" in output
     assert "rows" in output
     assert f" {len(load_migrations())} rows" in output
+
+
+def test_a_writing_command_lands_on_the_trail(initialised: Invoke) -> None:
+    initialised("sale", "create", "2024-03-12", "--title", "Tuesday")
+    output = initialised("admin", "audit").output
+    assert "sale.create" in output
+    assert "2024-03-12" in output
+
+
+def test_a_reading_command_does_not(initialised: Invoke) -> None:
+    initialised("sale", "create", "2024-03-12", "--title", "Tuesday")
+    initialised("sale", "list")
+    initialised("report", "reference")
+    output = initialised("admin", "audit").output
+    assert "sale.list" not in output
+    assert "report." not in output
+    assert "1 events of 1" in output
+
+
+def test_a_command_that_failed_leaves_no_line(initialised: Invoke) -> None:
+    result = initialised("sale", "create", "not-a-date", "--title", "Tuesday", expect=2)
+    assert "is not a date" in result.output
+    assert "0 events" in initialised("admin", "audit").output

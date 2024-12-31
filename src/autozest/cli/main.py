@@ -24,10 +24,11 @@ from autozest.cli.report import report
 from autozest.cli.settle import settle
 from autozest.cli.staff import roster
 from autozest.cli.title import title
+from autozest.cli.trail import is_worth_recording, record, subject_of
 from autozest.cli.yard import gate, yard
 from autozest.errors import AutozestError, exit_status_for
 from autozest.logs import LEVELS, configure, log
-from autozest.storage.db import integrity_problems
+from autozest.storage.db import connect, integrity_problems
 from autozest.storage.migrator import current_version, load_migrations, pending
 
 pass_context = click.make_pass_decorator(Context)
@@ -106,9 +107,16 @@ cli.add_command(roster)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:
-    """Run the command line and turn a domain error into an exit status."""
+    """Run the command line, record what it did, and map errors to statuses.
+
+    The audit line goes on after the work succeeded. A command that raised
+    changed nothing worth recording, and a trail full of attempts is a trail
+    nobody reads.
+    """
+    arguments = list(argv or [])
     try:
-        cli.main(args=argv, standalone_mode=False, **extra)
+        cli.main(args=arguments, standalone_mode=False, **extra)
+        _record(arguments)
     except click.ClickException as exc:
         exc.show()
         return exc.exit_code
@@ -121,11 +129,51 @@ def run(argv: list[str] | None = None, **extra: Any) -> int:
         return exit_status_for(exc)
     except SystemExit as exc:
         return int(exc.code or 0)
+    except Exception as exc:
+        log.error("cli.crashed", kind=type(exc).__name__, message=str(exc))
+        click.echo(f"error: {type(exc).__name__}: {exc}", err=True)
+        return 1
     return 0
 
 
 def main() -> int:
     return run(sys.argv[1:])
+
+
+def _record(arguments: list[str]) -> None:
+    """Put one line on the trail for a command that changed something."""
+    positional = [item for item in arguments if not item.startswith("-")]
+    skip = {"--db", "--config", "--log"}
+    cleaned: list[str] = []
+    index = 0
+    while index < len(arguments):
+        if arguments[index] in skip:
+            index += 2
+            continue
+        cleaned.append(arguments[index])
+        index += 1
+    positional = [item for item in cleaned if not item.startswith("-")]
+    if len(positional) < 2:
+        return
+    group, command = positional[0], positional[1]
+    if not is_worth_recording(group, command):
+        return
+    database = _database_from(arguments)
+    if database is None:
+        return
+    try:
+        conn = connect(database, create=False)
+    except AutozestError:
+        return
+    record(conn, group, command, subject_of(positional[2:]))
+    conn.close()
+
+
+def _database_from(arguments: list[str]) -> str | None:
+    for index, item in enumerate(arguments):
+        if item == "--db" and index + 1 < len(arguments):
+            return arguments[index + 1]
+    return None
 
 
 #: Kept so tests can reach the group without importing click themselves.

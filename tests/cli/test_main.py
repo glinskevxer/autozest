@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from autozest import __version__
 from tests.cli.conftest import Invoke, invoke
 
@@ -70,3 +72,15 @@ def test_the_start_line_only_shows_at_debug(db_path: Path) -> None:
     assert "error:" in quiet.stderr
     noisy = invoke("--log", "debug", "--db", str(db_path), "status")
     assert "cli.start command=status" in noisy.stderr
+
+
+def test_an_unexpected_exception_is_still_an_exit_status(
+    db_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def boom(*args: object, **kwargs: object) -> None:
+        raise RuntimeError("the disk fell off")
+
+    monkeypatch.setattr("autozest.cli.main.cli.main", boom)
+    result = invoke("--db", str(db_path), "status")
+    assert result.exit_code == 1
+    assert "RuntimeError: the disk fell off" in result.stderr

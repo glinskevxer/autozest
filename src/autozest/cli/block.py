@@ -20,6 +20,7 @@ from autozest.block.sales import SaleRepository
 from autozest.cli import lookup
 from autozest.cli.context import Context
 from autozest.consignment.repository import ConsignmentRepository
+from autozest.errors import ValidationError
 from autozest.inspection.announcements import Light
 from autozest.money import Money
 from autozest.reporting.text import Align, Column, Table, key_values, money_column
@@ -37,6 +38,18 @@ RUN_TABLE = Table(
         Column("buyer", 8),
     ]
 )
+
+
+def _parse_day(text: str) -> date:
+    """A date somebody typed, with an error they can act on.
+
+    date.fromisoformat raises a ValueError whose message names the library
+    rather than the field, which is not what a person at a terminal needs.
+    """
+    try:
+        return date.fromisoformat(text)
+    except ValueError as exc:
+        raise ValidationError(f"{text!r} is not a date, use YYYY-MM-DD") from exc
 
 
 def _parse_lanes(spec: str) -> dict[str, int]:
@@ -61,7 +74,7 @@ def sale() -> None:
 def create(ctx: Context, when: str, title: str, lanes: str) -> None:
     """Plan a sale for a date."""
     repo = SaleRepository(ctx.open())
-    created = repo.create(date.fromisoformat(when), title, _parse_lanes(lanes))
+    created = repo.create(_parse_day(when), title, _parse_lanes(lanes))
     letters = ", ".join(lane.letter for lane in repo.lanes(created.code))
     click.echo(f"created {created.code} with lanes {letters}")
 

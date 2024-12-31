@@ -11,6 +11,7 @@ a phone: one reason per line, in the order they are usually cleared.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 
 import click
 
@@ -21,6 +22,7 @@ from autozest.cli.context import Context
 from autozest.money import Money
 from autozest.notices import NoticeQueue
 from autozest.reporting.text import Column, Table, key_values, money_column
+from autozest.settlement.adjustments import AdjustmentKind, AdjustmentService
 from autozest.settlement.fees import Service
 from autozest.settlement.floorplan import FloorplanService, LineStatus
 from autozest.settlement.ledger import Ledger
@@ -28,6 +30,7 @@ from autozest.settlement.payments import Method, PaymentService
 from autozest.settlement.periods import PeriodService
 from autozest.settlement.postings import PostingService
 from autozest.settlement.proceeds import ProceedsService
+from autozest.settlement.reconcile import Reconciler, parse
 from autozest.settlement.statements import Side, StatementService
 
 pass_context = click.make_pass_decorator(Context)
@@ -359,3 +362,73 @@ def notices(ctx: Context, party: str | None, only_stuck: bool) -> None:
         for status, count in sorted(counts.items(), key=lambda pair: pair[0].value)
     )
     click.echo(f"{len(rows)} listed. {summary or 'nothing queued'}")
+
+
+@settle.command("reconcile")
+@click.argument("path", type=click.Path(exists=True, dir_okay=False))
+@click.option("--apply", "really", is_flag=True, help="Take in the confident matches.")
+@pass_context
+def reconcile(ctx: Context, path: str, really: bool) -> None:
+    """Match a bank file against what buyers owe.
+
+    Nothing is applied unless asked for, and only the confident matches are
+    applied even then. An ambiguous line goes in front of a person.
+    """
+    reconciler = Reconciler(ctx.open())
+    result = reconciler.match(parse(Path(path).read_text("utf-8")))
+    for match in result.matches:
+        click.echo(str(match))
+        if match.candidates:
+            click.echo(f"    could be {', '.join(match.candidates)}")
+    click.echo(result.summary())
+    if really:
+        click.echo(f"took in {reconciler.apply(result)} payments")
+
+
+@settle.command("adjust")
+@click.argument("kind", type=click.Choice([k.value for k in AdjustmentKind]))
+@click.argument("party")
+@click.argument("amount")
+@click.option("--reason", required=True)
+@click.option("--by", "raised_by", required=True)
+@click.option("--approved-by", default=None, help="Needed over the threshold.")
+@click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
+@pass_context
+def adjust(
+    ctx: Context,
+    kind: str,
+    party: str,
+    amount: str,
+    reason: str,
+    raised_by: str,
+    approved_by: str | None,
+    side: str,
+) -> None:
+    """Raise a credit note or a write off."""
+    service = AdjustmentService(ctx.open())
+    money = Money.parse(amount)
+    if AdjustmentKind(kind) is AdjustmentKind.WRITE_OFF:
+        adjustment = service.write_off(
+            party, money, reason=reason, raised_by=raised_by, approved_by=approved_by
+        )
+    else:
+        adjustment = service.credit_note(
+            party,
+            money,
+            reason=reason,
+            raised_by=raised_by,
+            approved_by=approved_by,
+            side=Side(side),
+        )
+    click.echo(f"{adjustment.reference}  {adjustment.kind.value}  {adjustment.amount}")
+
+
+@settle.command("adjustments")
+@click.argument("party")
+@pass_context
+def adjustments(ctx: Context, party: str) -> None:
+    """Every credit note and write off against one account."""
+    service = AdjustmentService(ctx.open())
+    for reference, amount, memo in service.history(party):
+        click.echo(f"{reference}  {amount:>12}  {memo}")
+    click.echo(f"{service.written_off()} written off in total")

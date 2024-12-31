@@ -215,3 +215,79 @@ def test_the_whole_close(office: Invoke) -> None:
 
 def test_the_notice_queue_starts_empty(office: Invoke) -> None:
     assert "nothing queued" in office("settle", "notices").output
+
+
+def test_reconciling_a_bank_file(office: Invoke, tmp_path: Path) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    bank = tmp_path / "bank.csv"
+    bank.write_text("date,amount,reference\n2024-03-14,8545.00,WIRE-1\n")
+    output = office("settle", "reconcile", str(bank)).output
+    assert "1 lines, 1 matched" in output
+    assert "d-200" in output
+
+
+def test_applying_a_reconciliation(office: Invoke, tmp_path: Path) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    bank = tmp_path / "bank.csv"
+    bank.write_text("date,amount,reference\n2024-03-14,8545.00,WIRE-1\n")
+    assert "took in 1 payments" in office("settle", "reconcile", str(bank), "--apply").output
+    assert "0 holds" not in office("settle", "holds", VIN).output
+
+
+def test_an_unmatched_line_is_reported(office: Invoke, tmp_path: Path) -> None:
+    bank = tmp_path / "bank.csv"
+    bank.write_text("date,amount,reference\n2024-03-14,77.00,MYSTERY\n")
+    output = office("settle", "reconcile", str(bank)).output
+    assert "unmatched" in output
+    assert "1 for somebody to look at" in output
+
+
+def test_a_credit_note_from_the_command_line(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    output = office(
+        "settle",
+        "adjust",
+        "credit_note",
+        "d-200",
+        "100.00",
+        "--reason",
+        "fee charged twice",
+        "--by",
+        "p.dunne",
+    ).output
+    assert "credit_note" in output
+    assert "100.00" in output
+    assert "written off in total" in office("settle", "adjustments", "d-200").output
+
+
+def test_a_large_adjustment_needs_a_second_name(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    office(
+        "settle",
+        "adjust",
+        "credit_note",
+        "d-200",
+        "900.00",
+        "--reason",
+        "goodwill",
+        "--by",
+        "p.dunne",
+        expect=7,
+    )
+    office(
+        "settle",
+        "adjust",
+        "credit_note",
+        "d-200",
+        "900.00",
+        "--reason",
+        "goodwill",
+        "--by",
+        "p.dunne",
+        "--approved-by",
+        "m.byrne",
+    )

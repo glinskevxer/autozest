@@ -31,6 +31,7 @@ from autozest.consignment.intake import IntakeService
 from autozest.consignment.models import Consignment
 from autozest.errors import AutozestError, ValidationError
 from autozest.money import Money
+from autozest.storage.retry import writing
 from autozest.vin import Vin
 
 REQUIRED_COLUMNS = ("vin", "make", "model")
@@ -165,24 +166,32 @@ class ConsignmentImporter:
         return built
 
     def apply(self, plan: ImportPlan) -> list[Consignment]:
-        """Write a plan. Refuses outright if anything at all was wrong."""
+        """Write a plan, all of it or none of it.
+
+        One transaction around the whole file. Four hundred rows written one
+        commit at a time is four hundred fsyncs, and worse, a crash half way
+        through leaves the yard with a list that matches nothing. The all or
+        nothing promise the checking makes is only real if the writing keeps
+        it too.
+        """
         if not plan.is_clean:
             raise ValidationError(
                 f"the file has {len(plan.problems)} problems and none of it was imported"
             )
         created: list[Consignment] = []
-        for _, vehicle, floor, transport, title, note in plan.rows:
-            self.vehicles.upsert(vehicle)
-            created.append(
-                self.intake.register(
-                    vehicle.vin.value,
-                    plan.seller_id,
-                    floor=floor,
-                    transport_ref=transport,
-                    title_expected=title,
-                    note=note,
+        with writing(self.conn):
+            for _, vehicle, floor, transport, title, note in plan.rows:
+                self.vehicles.upsert(vehicle)
+                created.append(
+                    self.intake.register(
+                        vehicle.vin.value,
+                        plan.seller_id,
+                        floor=floor,
+                        transport_ref=transport,
+                        title_expected=title,
+                        note=note,
+                    )
                 )
-            )
         return created
 
     def import_file(self, path: Path | str, seller_id: str) -> list[Consignment]:

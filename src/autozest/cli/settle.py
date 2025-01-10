@@ -65,19 +65,16 @@ def post(ctx: Context, code: str, number: str | None) -> None:
         if number
         else [r for r in sales.runs(code) if r.status is RunStatus.SOLD]
     )
-    posted = 0
-    for run in runs:
+    outstanding = [run for run in runs if run.id is not None and not posting.is_posted(run.id)]
+    for run in outstanding:
         assert run.id is not None
-        if posting.is_posted(run.id):
-            continue
         figures = posting.figures(run.id)
-        posting.post_sale(run.id)
-        posted += 1
         click.echo(
             f"{run.number}  hammer {figures.hammer}  buyer owes {figures.buyer_owes}  "
             f"seller gets {figures.seller_earns}"
         )
-    click.echo(f"{posted} runs posted")
+    entries = posting.post_sale_batch([run.id for run in outstanding if run.id is not None])
+    click.echo(f"{len(entries)} runs posted")
 
 
 @settle.command("service")

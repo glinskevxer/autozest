@@ -197,3 +197,36 @@ def test_a_reposted_sale_keeps_both_entries_on_the_record(
     entries = Ledger(floor.conn).entries_for("run", str(run_id))
     assert len(entries) == 3
     assert any("reversal" in entry.memo for entry in entries)
+
+
+def test_a_batch_posts_everything_in_one_go(floor: Floor, posting: PostingService) -> None:
+    first = floor.catalogue(floor_price="3000.00")
+    second = floor.catalogue(floor_price="3000.00")
+    floor.sales.open_sale(floor.code)
+    bidding = BiddingService(floor.conn)
+    for run_id in (first, second):
+        bidding.bid(run_id, "d-200", Money.parse("8200.00"))
+        bidding.fall(run_id)
+    entries = posting.post_sale_batch([first, second])
+    assert len(entries) == 2
+    assert Ledger(floor.conn).is_balanced()
+    assert not floor.conn.in_transaction
+
+
+def test_a_batch_skips_what_is_already_posted(floor: Floor, posting: PostingService) -> None:
+    run_id = sold(floor)
+    posting.post_sale(run_id)
+    assert posting.post_sale_batch([run_id]) == []
+
+
+def test_a_batch_that_fails_leaves_nothing(floor: Floor, posting: PostingService) -> None:
+    first = floor.catalogue(floor_price="3000.00")
+    second = floor.catalogue(floor_price="3000.00")
+    floor.sales.open_sale(floor.code)
+    bidding = BiddingService(floor.conn)
+    bidding.bid(first, "d-200", Money.parse("8200.00"))
+    bidding.fall(first)
+    with pytest.raises(PolicyViolation):
+        posting.post_sale_batch([first, second])
+    assert not posting.is_posted(first)
+    assert not floor.conn.in_transaction

@@ -129,3 +129,41 @@ def test_importing_from_a_file(importer: ConsignmentImporter, tmp_path: Path) ->
     target = tmp_path / "fleet.csv"
     target.write_text(HEADER + ROW)
     assert len(importer.import_file(target, "f-100")) == 1
+
+
+def test_the_whole_file_lands_in_one_transaction(
+    importer: ConsignmentImporter, db: sqlite3.Connection
+) -> None:
+    importer.apply(importer.plan(HEADER + ROW + ROW2, "f-100"))
+    assert not db.in_transaction
+    assert importer.intake.consignments.count() == 2
+
+
+def test_a_failure_part_way_through_leaves_nothing(
+    importer: ConsignmentImporter, db: sqlite3.Connection, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    plan = importer.plan(HEADER + ROW + ROW2, "f-100")
+    calls: list[int] = []
+    original = importer.intake.register
+
+    def falls_over(*args: object, **kwargs: object) -> object:
+        calls.append(1)
+        if len(calls) > 1:
+            raise RuntimeError("the disk fell off")
+        return original(*args, **kwargs)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(importer.intake, "register", falls_over)
+    with pytest.raises(RuntimeError):
+        importer.apply(plan)
+    assert importer.intake.consignments.count() == 0
+    assert not db.in_transaction
+
+
+def test_a_second_import_still_works_after_a_rollback(
+    importer: ConsignmentImporter, db: sqlite3.Connection
+) -> None:
+    bad = importer.plan(HEADER + ROW + ",Honda,Accord,,,,\n", "f-100")
+    with pytest.raises(ValidationError):
+        importer.apply(bad)
+    importer.apply(importer.plan(HEADER + ROW, "f-100"))
+    assert importer.intake.consignments.count() == 1

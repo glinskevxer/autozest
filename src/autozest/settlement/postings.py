@@ -34,6 +34,7 @@ from autozest.errors import Conflict, PolicyViolation
 from autozest.money import Money
 from autozest.settlement.fees import FeeSchedule, Service
 from autozest.settlement.ledger import Account, Entry, Ledger, credit, debit
+from autozest.storage.retry import writing
 
 SOURCE_RUN = "run"
 SOURCE_SERVICE = "service"
@@ -100,6 +101,22 @@ class PostingService:
             raise Conflict("that run is already posted", run=run_id)
         figures = self.figures(run_id)
         return self.ledger.post(self._sale_entry(figures))
+
+    def post_sale_batch(self, run_ids: list[int]) -> list[Entry]:
+        """Post a whole sale's worth in one transaction.
+
+        Settling three hundred runs one commit at a time is three hundred
+        fsyncs and, on the night the office machine died half way through, a
+        ledger that balanced and a sale that was half posted. Either all of
+        them land or none of them do.
+        """
+        posted: list[Entry] = []
+        with writing(self.conn):
+            for run_id in run_ids:
+                if self.is_posted(run_id):
+                    continue
+                posted.append(self.post_sale(run_id))
+        return posted
 
     def _sale_entry(self, figures: SaleFigures) -> Entry:
         return Entry(

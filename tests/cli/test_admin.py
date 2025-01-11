@@ -176,3 +176,9 @@ def test_a_command_that_failed_leaves_no_line(initialised: Invoke) -> None:
     result = initialised("sale", "create", "not-a-date", "--title", "Tuesday", expect=2)
     assert "is not a date" in result.output
     assert "0 events" in initialised("admin", "audit").output
+
+
+def test_the_query_plans_are_reported(initialised: Invoke) -> None:
+    output = initialised("admin", "plans").output
+    assert "seller statement" in output
+    assert "0 without an index" in output

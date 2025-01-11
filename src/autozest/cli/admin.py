@@ -27,6 +27,7 @@ from autozest.storage.db import connect, integrity_problems, table_names
 from autozest.storage.migrator import current_version, load_migrations, pending
 from autozest.tools.check_migrations import problems as migration_problems
 from autozest.tools.demo import build as build_demo
+from autozest.tools.explain import plans
 
 pass_context = click.make_pass_decorator(Context)
 
@@ -277,3 +278,14 @@ def sizes(ctx: Context, top: int) -> None:
     for line in table.render(rows[:top]):
         click.echo(line)
     click.echo(f"{len(measured)} tables, {sum(count for _, count, _ in measured)} rows")
+
+
+@admin.command("plans")
+@pass_context
+def query_plans(ctx: Context) -> None:
+    """What sqlite is doing with the queries that run on a screen."""
+    found = plans(ctx.open())
+    for plan in found:
+        click.echo(str(plan))
+    scanning = [plan for plan in found if not plan.uses_an_index]
+    click.echo(f"{len(found)} queries, {len(scanning)} without an index")

@@ -40,6 +40,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from autozest.block.limits import LimitService
 from autozest.block.models import Run, RunStatus
 from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
@@ -100,6 +101,7 @@ class BiddingService:
         self.credit = FloorplanService(conn)
         self.registrations = RegistrationService(conn)
         self.groups = GroupService(conn)
+        self.limits = LimitService(conn)
 
     def standing_bid(self, run_id: int) -> Bid | None:
         """The highest live bid so far."""
@@ -150,6 +152,7 @@ class BiddingService:
             raise ValidationError("a bid cannot be negative")
         self._require_credit(run, buyer_id, amount)
         self._require_registered(run, buyer_id)
+        self.limits.check(buyer_id, run.sale_code, amount)
 
         standing = self.standing_bid(run_id)
         if standing is not None:

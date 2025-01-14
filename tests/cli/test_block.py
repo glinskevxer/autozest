@@ -204,3 +204,10 @@ def test_one_section_of_the_card(ring: Invoke) -> None:
     output = ring("report", "reference", "fees").output
     assert "card 2024.1" in output
     assert "The lights" not in output
+
+
+def test_readiness_exits_non_zero_until_the_sale_can_open(ring: Invoke) -> None:
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    result = ring("sale", "ready", "S-20240312", expect=1)
+    assert "nothing is catalogued" in result.output
+    assert "must be done first" in result.output

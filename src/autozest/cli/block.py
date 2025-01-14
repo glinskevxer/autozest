@@ -15,6 +15,7 @@ import click
 from autozest.block.bidding import BiddingService
 from autozest.block.catalogue import CatalogueService
 from autozest.block.models import RunStatus
+from autozest.block.readiness import render as render_readiness
 from autozest.block.registration import RegistrationService
 from autozest.block.sales import SaleRepository
 from autozest.cli import lookup
@@ -360,3 +361,19 @@ def blockers(ctx: Context, buyer: str) -> None:
     for reason in reasons:
         click.echo(reason)
     click.echo(f"{len(reasons)} blockers")
+
+
+@sale.command("ready")
+@click.argument("code")
+@pass_context
+def ready(ctx: Context, code: str) -> None:
+    """What is stopping this sale opening.
+
+    Ordered by how long each one takes to fix, so it reads as a list somebody
+    works through rather than one they read.
+    """
+    lines = render_readiness(ctx.open(), code)
+    for line in lines:
+        click.echo(line)
+    if "must be done first" in lines[-1]:
+        raise SystemExit(1)

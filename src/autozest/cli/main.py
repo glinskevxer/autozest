@@ -20,6 +20,7 @@ from autozest.cli.arb import arb
 from autozest.cli.block import block, sale
 from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
+from autozest.cli.market import limits, market
 from autozest.cli.report import report
 from autozest.cli.settle import settle
 from autozest.cli.staff import roster
@@ -104,6 +105,8 @@ cli.add_command(admin)
 cli.add_command(yard)
 cli.add_command(gate)
 cli.add_command(roster)
+cli.add_command(market)
+cli.add_command(limits)
 
 
 def run(argv: list[str] | None = None, **extra: Any) -> int:

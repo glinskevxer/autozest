@@ -211,3 +211,35 @@ def test_readiness_exits_non_zero_until_the_sale_can_open(ring: Invoke) -> None:
     result = ring("sale", "ready", "S-20240312", expect=1)
     assert "nothing is catalogued" in result.output
     assert "must be done first" in result.output
+
+
+def test_the_two_groups_are_separate_modules() -> None:
+    """A regression guard on the split, not a style opinion.
+
+    The two groups have different users on different days and one file holding
+    both had grown past the point where either could be read. Importing them
+    from the wrong place is how they grow back together.
+    """
+    from autozest.cli import block as block_module
+    from autozest.cli import sale as sale_module
+
+    assert hasattr(block_module, "block")
+    assert hasattr(sale_module, "sale")
+    assert not hasattr(block_module, "sale")
+    assert not hasattr(sale_module, "block")
+
+
+def test_every_block_command_is_live(ring: Invoke) -> None:
+    from autozest.cli.block import block as block_group
+
+    names = set(block_group.commands)
+    assert {"bid", "fall", "counter", "accept", "decline", "if-list", "show"} <= names
+    assert {"register", "door", "blockers"} <= names
+
+
+def test_every_sale_command_is_live(ring: Invoke) -> None:
+    from autozest.cli.sale import sale as sale_group
+
+    names = set(sale_group.commands)
+    assert {"create", "catalogue", "runs", "open", "close", "list"} <= names
+    assert {"relight", "ready"} <= names

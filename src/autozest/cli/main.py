@@ -17,11 +17,12 @@ import click
 from autozest import __version__
 from autozest.cli.admin import admin
 from autozest.cli.arb import arb
-from autozest.cli.block import block, sale
+from autozest.cli.block import block
 from autozest.cli.consign import consign, inspect
 from autozest.cli.context import Context
 from autozest.cli.market import limits, market
 from autozest.cli.report import report
+from autozest.cli.sale import sale
 from autozest.cli.settle import settle
 from autozest.cli.staff import roster
 from autozest.cli.title import title

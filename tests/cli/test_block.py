@@ -243,3 +243,33 @@ def test_every_sale_command_is_live(ring: Invoke) -> None:
     names = set(sale_group.commands)
     assert {"create", "catalogue", "runs", "open", "close", "list"} <= names
     assert {"relight", "ready"} <= names
+
+
+def test_the_rule_catalogue_prints(ring: Invoke) -> None:
+    output = ring("report", "reference", "rules").output
+    assert "arb.announced" in output
+    assert "bid.own_unit" in output
+    assert "rules" in output
+
+
+def test_the_exit_statuses_print(ring: Invoke) -> None:
+    output = ring("report", "reference", "statuses").output
+    assert "a rule forbids it" in output
+    assert "the record is in the wrong state" in output
+
+
+def test_the_documented_statuses_are_the_ones_the_command_line_uses(
+    ring: Invoke,
+) -> None:
+    """The card is only worth printing if it is true.
+
+    Each of these is a real command that fails in a real way, checked against
+    the status the card claims it will give.
+    """
+    ring("sale", "create", "2024-03-12", "--title", "Tuesday")
+    ring("sale", "create", "nonsense", "--title", "Tuesday", expect=2)
+    ring("sale", "runs", "S-19990101", expect=4)
+    ring("sale", "create", "2024-03-12", "--title", "Again", expect=5)
+    prepared(ring, VINS[0])
+    ring("sale", "catalogue", "S-20240312", "--lane", "A")
+    ring("block", "bid", "S-20240312", "A001", "d-200", "5200.00", expect=7)

@@ -65,3 +65,32 @@ def test_the_whole_card_reads_in_order() -> None:
 def test_the_sections_are_all_callable() -> None:
     for name, builder in reference.SECTIONS.items():
         assert builder(), name
+
+
+def test_the_rules_section_lists_every_rule() -> None:
+    from autozest.rules import CATALOGUE
+
+    printed = text(reference.rules_section())
+    assert "arb.announced" in printed
+    assert f"{len(CATALOGUE)} rules" in printed
+
+
+def test_the_status_section_covers_every_code() -> None:
+    from autozest.errors import PolicyViolation, ValidationError
+
+    printed = text(reference.statuses_section())
+    assert str(ValidationError.exit_status) in printed
+    assert PolicyViolation.code in printed
+    assert "a rule forbids it" in printed
+
+
+def test_the_statuses_are_unique_and_ordered() -> None:
+    statuses = [status for status, _, _ in reference.EXIT_STATUSES]
+    assert statuses == sorted(statuses)
+    assert len(statuses) == len(set(statuses))
+
+
+def test_the_whole_card_now_ends_with_the_statuses() -> None:
+    printed = text(reference.render())
+    assert printed.index("Fees, card") < printed.index("What the system will refuse")
+    assert printed.index("What the system will refuse") < printed.index("Exit statuses")

@@ -15,11 +15,32 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from autozest import rules as rules_catalogue
 from autozest.arbitration.policy import ArbitrationPolicy, classes_for
 from autozest.defects import DefectClass
+from autozest.errors import (
+    ConfigError,
+    Conflict,
+    NotFound,
+    PolicyViolation,
+    StateError,
+    ValidationError,
+)
 from autozest.inspection.announcements import REGISTRY, AnnouncementCode, Light
 from autozest.reporting.text import Align, Column, Table, heading, money_column, wrap
 from autozest.settlement.fees import FeeSchedule, Service
+
+#: What every exit status means. A script reading these is the point.
+EXIT_STATUSES: tuple[tuple[int, str, str], ...] = (
+    (0, "ok", "it worked"),
+    (1, "error", "something unexpected, or a check that failed"),
+    (ValidationError.exit_status, ValidationError.code, "the input is not well formed"),
+    (ConfigError.exit_status, ConfigError.code, "the configuration or the database is wrong"),
+    (NotFound.exit_status, NotFound.code, "no record with that key"),
+    (Conflict.exit_status, Conflict.code, "it already exists, or would duplicate"),
+    (StateError.exit_status, StateError.code, "the record is in the wrong state"),
+    (PolicyViolation.exit_status, PolicyViolation.code, "a rule forbids it"),
+)
 
 LIGHT_MEANING = {
     Light.GREEN: "Full arbitration. Everything on the list below is heard.",
@@ -130,6 +151,26 @@ def fees_section(schedule: FeeSchedule | None = None) -> list[str]:
     return lines
 
 
+def rules_section() -> list[str]:
+    """Every rule the system will refuse something for."""
+    lines = heading("What the system will refuse, and what it calls it")
+    lines.extend(f"  {line}" for line in rules_catalogue.render())
+    lines.append("")
+    return lines
+
+
+def statuses_section() -> list[str]:
+    """What each exit status means, for whoever is writing a script."""
+    lines = heading("Exit statuses")
+    table = Table([Column("status", 8, Align.RIGHT), Column("code", 14), Column("means", 56)])
+    rows: list[list[object]] = [
+        [status, code, detail] for status, code, detail in EXIT_STATUSES
+    ]
+    lines.extend(table.render(rows))
+    lines.append("")
+    return lines
+
+
 def render(
     policy: ArbitrationPolicy | None = None, schedule: FeeSchedule | None = None
 ) -> list[str]:
@@ -139,6 +180,8 @@ def render(
     lines.extend(announcements_section())
     lines.extend(arbitration_section(policy))
     lines.extend(fees_section(schedule))
+    lines.extend(rules_section())
+    lines.extend(statuses_section())
     return lines
 
 
@@ -149,4 +192,6 @@ SECTIONS: dict[str, Callable[[], list[str]]] = {
     "announcements": announcements_section,
     "arbitration": arbitration_section,
     "fees": fees_section,
+    "rules": rules_section,
+    "statuses": statuses_section,
 }

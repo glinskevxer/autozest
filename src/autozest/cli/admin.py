@@ -28,6 +28,7 @@ from autozest.storage.migrator import current_version, load_migrations, pending
 from autozest.tools.check_migrations import problems as migration_problems
 from autozest.tools.demo import build as build_demo
 from autozest.tools.explain import plans
+from autozest.tools.redact import redact, would_change
 
 pass_context = click.make_pass_decorator(Context)
 
@@ -289,3 +290,27 @@ def query_plans(ctx: Context) -> None:
         click.echo(str(plan))
     scanning = [plan for plan in found if not plan.uses_an_index]
     click.echo(f"{len(found)} queries, {len(scanning)} without an index")
+
+
+@admin.command("redact")
+@click.argument("target", required=False)
+@click.option("--salt", default="autozest", show_default=True, help="Changes the stand ins.")
+@click.option("--dry-run", is_flag=True, help="Say what would change and write nothing.")
+@pass_context
+def redact_copy(ctx: Context, target: str | None, salt: str, dry_run: bool) -> None:
+    """Make a copy somebody outside this building can be given.
+
+    Rows are kept and money is never touched. A redacted file has to behave
+    like the real one or it is not a reproduction of anything.
+    """
+    conn = ctx.open()
+    if dry_run or not target:
+        counts = would_change(conn)
+        for column, found in sorted(counts.items()):
+            click.echo(f"  {column:<34} {found}")
+        click.echo(f"{sum(counts.values())} values across {len(counts)} columns")
+        if not target:
+            return
+        return
+    written = redact(conn, target, salt=salt)
+    click.echo(written.summary())

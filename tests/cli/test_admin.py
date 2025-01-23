@@ -182,3 +182,18 @@ def test_the_query_plans_are_reported(initialised: Invoke) -> None:
     output = initialised("admin", "plans").output
     assert "seller statement" in output
     assert "0 without an index" in output
+
+
+def test_a_redaction_dry_run_writes_nothing(initialised: Invoke) -> None:
+    initialised("admin", "seed", "--units", "4")
+    output = initialised("admin", "redact").output
+    assert "account.name" in output
+    assert "values across" in output
+
+
+def test_a_redacted_copy_is_written(initialised: Invoke, tmp_path: Path) -> None:
+    initialised("admin", "seed", "--units", "4")
+    target = tmp_path / "shareable.sqlite3"
+    output = initialised("admin", "redact", str(target)).output
+    assert "written to" in output
+    assert target.exists()

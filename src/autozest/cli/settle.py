@@ -19,6 +19,7 @@ from autozest.block.models import RunStatus
 from autozest.block.sales import SaleRepository
 from autozest.cli import lookup
 from autozest.cli.context import Context
+from autozest.dispatch import DispatchService
 from autozest.money import Money
 from autozest.notices import NoticeQueue
 from autozest.reporting.text import Column, Table, key_values, money_column
@@ -429,3 +430,19 @@ def adjustments(ctx: Context, party: str) -> None:
     for reference, amount, memo in service.history(party):
         click.echo(f"{reference}  {amount:>12}  {memo}")
     click.echo(f"{service.written_off()} written off in total")
+
+
+@settle.command("dispatch")
+@click.option("--as-at", "as_at", default=None, help="Run the job as at a date.")
+@pass_context
+def dispatch(ctx: Context, as_at: str | None) -> None:
+    """Queue everything today's state says needs saying.
+
+    Safe to run twice. A notice already on the queue for the same thing is
+    left alone, which is what makes this a job anybody can rerun after a
+    failure.
+    """
+    result = DispatchService(ctx.open()).run(as_at=date.fromisoformat(as_at) if as_at else None)
+    for kind, count in sorted(result.kinds.items()):
+        click.echo(f"  {kind:<16} {count}")
+    click.echo(result.summary())

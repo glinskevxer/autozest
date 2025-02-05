@@ -10,7 +10,7 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import aging, disclosure, exports, reference, turnaround
+from autozest.reporting import aging, dashboard, disclosure, exports, reference, turnaround
 from autozest.reporting import recap as recap_report
 from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
@@ -176,3 +176,12 @@ def disclosure_audit(ctx: Context, code: str) -> None:
         click.echo(line)
     if "needs looking at" in lines[-1]:
         raise SystemExit(1)
+
+
+@report.command("dashboard")
+@click.option("--sale", "sale_code", default=None, help="Include one sale's numbers.")
+@pass_context
+def dashboard_report(ctx: Context, sale_code: str | None) -> None:
+    """The numbers somebody actually asks for, on one screen."""
+    for line in dashboard.render(ctx.open(), sale_code):
+        click.echo(line)

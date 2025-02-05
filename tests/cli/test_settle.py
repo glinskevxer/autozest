@@ -291,3 +291,20 @@ def test_a_large_adjustment_needs_a_second_name(office: Invoke) -> None:
         "--approved-by",
         "m.byrne",
     )
+
+
+def test_the_dashboard_prints(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    output = office("report", "dashboard", "--sale", "S-20240312").output
+    assert "the sale" in output
+    assert "the money" in output
+    assert "8,545.00" in output
+
+
+def test_the_dispatch_job_is_safe_to_run_twice(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    first = office("settle", "dispatch").output
+    assert "queued" in first
+    assert "0 queued" in office("settle", "dispatch").output

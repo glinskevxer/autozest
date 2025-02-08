@@ -7,13 +7,18 @@ name = "autozest"
 version = "0.1.0"
 description = "Consignment, block and settlement system for a wholesale vehicle auction"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = { text = "Proprietary" }
 authors = [{ name = "glinskevxer", email = "roym78109@gmail.com" }]
 dependencies = ["click==8.1.7"]
 
 [project.scripts]
 az = "autozest.cli.main:main"
+
+[project.urls]
+Homepage = "https://github.com/glinskevxer/autozest"
+
+
 
 [project.optional-dependencies]
 dev = [
@@ -33,7 +38,7 @@ filterwarnings = ["error"]
 
 [tool.ruff]
 line-length = 96
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "C4", "SIM", "RET", "RUF"]
@@ -43,7 +48,7 @@ ignore = ["RUF012"]
 "tests/*" = ["RUF001"]
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 files = ["src", "tests"]
 strict = true
 warn_unreachable = true

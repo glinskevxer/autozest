@@ -1,0 +1,115 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONDONTWRITEBYTECODE: "1"
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  lint:
+    name: lint and types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install -e ".[dev]"
+      - name: ruff check
+        run: python -m ruff check .
+      - name: ruff format
+        run: python -m ruff format --check .
+      - name: mypy
+        run: python -m mypy
+
+  test:
+    name: python ${{ matrix.python }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install -e ".[dev]"
+      - name: pytest
+        run: python -m pytest -q
+
+  migrations:
+    name: migrations apply forwards
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install -e ".[dev]"
+      - name: check the shipped migrations
+        run: python -m autozest.tools.check_migrations
+      - name: check the query plans
+        run: python -m autozest.tools.explain
+
+  cli:
+    name: the command line works
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install .
+      - name: build a sale and read it back
+        run: |
+          set -euo pipefail
+          az --db "$RUNNER_TEMP/ci.sqlite3" init
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin seed --units 24
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin check
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin health
+          az --db "$RUNNER_TEMP/ci.sqlite3" report recap S-20240312
+          az --db "$RUNNER_TEMP/ci.sqlite3" report reference
+          az --db "$RUNNER_TEMP/ci.sqlite3" settle post S-20240312
+          az --db "$RUNNER_TEMP/ci.sqlite3" settle trial-balance
+          az --db "$RUNNER_TEMP/ci.sqlite3" report dashboard --sale S-20240312
+
+  package:
+    name: it builds
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: install build
+        run: python -m pip install build==1.2.1
+      - name: build the wheel and the sdist
+        run: python -m build
+      - name: check what went in
+        run: |
+          set -euo pipefail
+          python -m pip install dist/*.whl
+          python -c "import autozest; print(autozest.__version__)"
+          az --help > /dev/null

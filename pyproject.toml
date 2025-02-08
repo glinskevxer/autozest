@@ -59,4 +59,13 @@ branch = true
 
 [tool.coverage.report]
 show_missing = true
-exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedError"]
+skip_covered = true
+# The floor is what the suite already reaches, less a little room. A floor set
+# above where the code is on the day it is added is a floor somebody turns off.
+fail_under = 95
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    'if __name__ == "__main__":',
+]

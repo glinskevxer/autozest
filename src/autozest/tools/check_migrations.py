@@ -19,7 +19,10 @@ import re
 import sqlite3
 import sys
 
-from autozest.storage.db import connect_memory, table_names
+# Re-exported deliberately: the tests patch it here to build a schema with a
+# deliberate fault in it, which is the only way to exercise the checks.
+from autozest.storage.db import connect_memory
+from autozest.storage.db import table_names as table_names
 from autozest.storage.migrator import load_migrations, migrate
 
 _SNAKE = re.compile(r"^[a-z][a-z0-9_]*$")

@@ -50,8 +50,8 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: install
         run: python -m pip install -e ".[dev]"
-      - name: pytest
-        run: python -m pytest -q
+      - name: pytest with a coverage floor
+        run: python -m pytest -q --cov=src/autozest --cov-report=term-missing
 
   migrations:
     name: migrations apply forwards

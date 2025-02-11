@@ -70,6 +70,8 @@ CATALOGUE: tuple[Rule, ...] = (
     _rule("roster.retired", "block", "the person is off the roster"),
     _rule("roster.double_booked", "block", "the person is already on another lane"),
     _rule("roster.short", "block", "a lane has no auctioneer or no ring man"),
+    _rule("template.retired", "block", "the sale template is retired"),
+    _rule("template.wrong_day", "block", "the template runs on another weekday"),
     _rule("rerun.never_ran", "block", "the unit has not been through a sale"),
     _rule("rerun.not_a_no_sale", "block", "only a no sale runs again"),
     _rule("rerun.too_many", "block", "the unit has run its three times"),

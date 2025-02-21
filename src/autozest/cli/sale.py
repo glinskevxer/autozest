@@ -16,6 +16,7 @@ from autozest.block.catalogue import CatalogueService
 from autozest.block.models import RunStatus
 from autozest.block.readiness import render as render_readiness
 from autozest.block.sales import SaleRepository
+from autozest.block.templates import TemplateService
 from autozest.cli import lookup
 from autozest.cli.context import Context
 from autozest.errors import ValidationError
@@ -190,3 +191,47 @@ def ready(ctx: Context, code: str) -> None:
         click.echo(line)
     if "must be done first" in lines[-1]:
         raise SystemExit(1)
+
+
+@sale.command("template")
+@click.argument("action", type=click.Choice(["add", "list", "build", "next", "retire"]))
+@click.option("--id", "template_id", default=None)
+@click.option("--name", default=None)
+@click.option("--weekday", type=click.IntRange(0, 6), default=None, help="0 is Monday.")
+@click.option("--title", default=None)
+@click.option("--lanes", default="A:100", help="Lane letters and capacities, A:100,B:80.")
+@click.option("--on", "on_date", default=None, help="The date to build, for build.")
+@pass_context
+def template(
+    ctx: Context,
+    action: str,
+    template_id: str | None,
+    name: str | None,
+    weekday: int | None,
+    title: str | None,
+    lanes: str,
+    on_date: str | None,
+) -> None:
+    """The sales that run every week, and building one from them."""
+    service = TemplateService(ctx.open())
+    if action == "list":
+        for found, when in service.upcoming():
+            click.echo(f"{found.id:<8} {found.describe()}  next {when}")
+        return
+    if action == "add":
+        if not (template_id and name and title and weekday is not None):
+            raise click.UsageError("add needs --id, --name, --weekday and --title")
+        made = service.create(template_id, name, weekday, title, _parse_lanes(lanes))
+        click.echo(made.describe())
+        return
+    if not template_id:
+        raise click.UsageError(f"{action} needs --id")
+    if action == "retire":
+        click.echo(f"{service.retire(template_id).name} retired")
+        return
+    built = (
+        service.build(template_id, _parse_day(on_date))
+        if action == "build" and on_date
+        else service.build_next(template_id)
+    )
+    click.echo(f"created {built.code}  {built.title}  {built.sale_date}")

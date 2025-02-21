@@ -273,3 +273,65 @@ def test_the_documented_statuses_are_the_ones_the_command_line_uses(
     prepared(ring, VINS[0])
     ring("sale", "catalogue", "S-20240312", "--lane", "A")
     ring("block", "bid", "S-20240312", "A001", "d-200", "5200.00", expect=7)
+
+
+def test_a_template_is_added_listed_and_built(ring: Invoke) -> None:
+    added = ring(
+        "sale",
+        "template",
+        "add",
+        "--id",
+        "t-1",
+        "--name",
+        "Tuesday dealer",
+        "--weekday",
+        "1",
+        "--title",
+        "Tuesday dealer sale",
+        "--lanes",
+        "A:120,B:120",
+    ).output
+    assert "every Tuesday" in added
+    assert "240 slots" in added
+    assert "t-1" in ring("sale", "template", "list").output
+    built = ring("sale", "template", "build", "--id", "t-1", "--on", "2024-03-19").output
+    assert "created S-20240319" in built
+
+
+def test_building_a_template_on_the_wrong_day_exits_seven(ring: Invoke) -> None:
+    ring(
+        "sale",
+        "template",
+        "add",
+        "--id",
+        "t-1",
+        "--name",
+        "Tuesday dealer",
+        "--weekday",
+        "1",
+        "--title",
+        "Tuesday dealer sale",
+    )
+    ring("sale", "template", "build", "--id", "t-1", "--on", "2024-03-21", expect=7)
+
+
+def test_add_without_its_options_is_a_usage_error(ring: Invoke) -> None:
+    ring("sale", "template", "add", "--id", "t-1", expect=2)
+
+
+def test_retiring_a_template(ring: Invoke) -> None:
+    ring(
+        "sale",
+        "template",
+        "add",
+        "--id",
+        "t-1",
+        "--name",
+        "Tuesday dealer",
+        "--weekday",
+        "1",
+        "--title",
+        "Tuesday dealer sale",
+    )
+    assert "retired" in ring("sale", "template", "retire", "--id", "t-1").output
+    assert "t-1" not in ring("sale", "template", "list").output

@@ -20,6 +20,7 @@ from autozest.consignment.intake import Arrival, IntakeService
 from autozest.consignment.models import ConsignmentStatus
 from autozest.inspection.announcements import AnnouncementCode, forced_light, labels
 from autozest.inspection.damage import DamageKind, DamageLine, Panel
+from autozest.inspection.queue import InspectionQueue
 from autozest.inspection.service import InspectionService
 from autozest.money import Money
 from autozest.reporting.text import Align, Column, Table, key_values, money_column
@@ -333,3 +334,19 @@ def history(ctx: Context, vin: str) -> None:
     click.echo(f"{len(visits)} visits, {len(readings)} odometer readings")
     for reading in readings:
         click.echo(f"  {reading.read_on}  {reading.miles:>9}  {reading.source}")
+
+
+@inspect.command("queue")
+@click.option("--limit", default=20, show_default=True)
+@pass_context
+def queue(ctx: Context, limit: int) -> None:
+    """What to inspect next, in the order it costs least to leave.
+
+    Units already in a planned sale come first. An uninspected unit in a sale
+    is a unit that gets pulled.
+    """
+    service = InspectionQueue(ctx.open(), ctx.policies.calendar)
+    built = service.build()
+    for item in built.waiting[:limit]:
+        click.echo(f"  {item.line()}")
+    click.echo(built.summary())

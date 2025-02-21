@@ -225,3 +225,20 @@ def test_the_unit_history(stocked: Invoke) -> None:
     assert "2 visits" in output
     assert "1 odometer readings" in output
     assert "41930" in output
+
+
+def test_the_inspection_queue(stocked: Invoke) -> None:
+    stocked("consign", "register", ACCORD, "d-100")
+    stocked("consign", "check-in", ACCORD, "--keys", "2", "--miles", "41930")
+    output = stocked("inspect", "queue").output
+    assert "1 waiting" in output
+    assert ACCORD in output
+
+
+def test_the_queue_empties_when_the_report_is_signed(stocked: Invoke) -> None:
+    stocked("consign", "register", ACCORD, "d-100")
+    stocked("consign", "check-in", ACCORD, "--keys", "2", "--miles", "41930")
+    report = stocked("inspect", "open", ACCORD, "--inspector", "j.hale").output.split()[1]
+    assert "half done" in stocked("inspect", "queue").output
+    stocked("inspect", "sign", report)
+    assert "0 waiting" in stocked("inspect", "queue").output

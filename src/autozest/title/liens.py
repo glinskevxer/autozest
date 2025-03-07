@@ -23,9 +23,9 @@ from typing import Any
 
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import NotFound, PolicyViolation, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money
-from autozest.storage.records import all_rows, insert, now_text, one, scalar, update
+from autozest.storage.records import all_rows, insert, now_text, one, update
+from autozest.storage.sequences import next_reference
 
 QUOTE_PREFIX = "Q"
 
@@ -128,7 +128,7 @@ class LienService:
         quoted_on = on or date.today()
         if good_until < quoted_on:
             raise ValidationError("a quote cannot expire before it was given")
-        reference = sequenced(QUOTE_PREFIX, quoted_on, self._next())
+        reference = next_reference(self.conn, "payoff_quote", QUOTE_PREFIX, on=quoted_on)
         insert(
             self.conn,
             "payoff_quote",
@@ -143,9 +143,6 @@ class LienService:
             },
         )
         return self.get(reference)
-
-    def _next(self) -> int:
-        return int(scalar(self.conn, "SELECT COUNT(*) FROM payoff_quote") or 0) + 1
 
     def get(self, reference: str) -> PayoffQuote:
         row = one(self.conn, "SELECT * FROM payoff_quote WHERE id = ?", (reference,))

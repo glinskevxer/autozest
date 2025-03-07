@@ -20,9 +20,9 @@ from enum import Enum
 from typing import Any
 
 from autozest.errors import NotFound, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money
-from autozest.storage.records import all_rows, insert, now_text, one, scalar, update
+from autozest.storage.records import all_rows, insert, now_text, one, update
+from autozest.storage.sequences import next_reference
 
 NOTICE_PREFIX = "N"
 
@@ -139,7 +139,7 @@ class NoticeQueue:
     ) -> Notice:
         if not subject.strip() or not body.strip():
             raise ValidationError("a notice needs a subject and a body")
-        notice_id = sequenced(NOTICE_PREFIX, date.today(), self._next())
+        notice_id = next_reference(self.conn, "notice", NOTICE_PREFIX)
         insert(
             self.conn,
             "notice",
@@ -156,9 +156,6 @@ class NoticeQueue:
             },
         )
         return self.get(notice_id)
-
-    def _next(self) -> int:
-        return int(scalar(self.conn, "SELECT COUNT(*) FROM notice") or 0) + 1
 
     def get(self, notice_id: str) -> Notice:
         row = one(self.conn, "SELECT * FROM notice WHERE id = ?", (notice_id,))

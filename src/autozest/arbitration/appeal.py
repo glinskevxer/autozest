@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -26,9 +26,9 @@ from autozest.arbitration.resolution import ResolutionService
 from autozest.block.sales import SaleRepository
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import Conflict, NotFound, PolicyViolation, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money
-from autozest.storage.records import all_rows, insert, one, scalar, update
+from autozest.storage.records import all_rows, insert, one, update
+from autozest.storage.sequences import next_reference
 from autozest.timing import DEFAULT_CALENDAR, BusinessCalendar, Window, WindowUnit
 
 APPEAL_PREFIX = "E"
@@ -152,7 +152,7 @@ class AppealService:
             )
         if self.for_claim(claim_reference) is not None:
             raise Conflict("that decision has already been appealed", claim=claim_reference)
-        reference = sequenced(APPEAL_PREFIX, when.date(), self._next(when.date()))
+        reference = next_reference(self.conn, "claim_appeal", APPEAL_PREFIX, on=when.date())
         insert(
             self.conn,
             "claim_appeal",
@@ -167,14 +167,6 @@ class AppealService:
         )
         self.claims.record(claim_reference, "appealed", raised_by, grounds)
         return self.get(reference)
-
-    def _next(self, day: date) -> int:
-        used = scalar(
-            self.conn,
-            "SELECT COUNT(*) FROM claim_appeal WHERE id LIKE ?",
-            (f"{APPEAL_PREFIX}-{day.year}-%",),
-        )
-        return int(used or 0) + 1
 
     def get(self, reference: str) -> Appeal:
         row = one(self.conn, "SELECT * FROM claim_appeal WHERE id = ?", (reference,))

@@ -22,11 +22,11 @@ from typing import Any
 
 from autozest.catalog.accounts import AccountRepository
 from autozest.errors import Conflict, NotFound, PolicyViolation
-from autozest.identifiers import sequenced
 from autozest.money import Money
 from autozest.settlement.floorplan import FloorplanService
 from autozest.settlement.statements import StatementService
-from autozest.storage.records import all_rows, insert, now_text, one, scalar, update
+from autozest.storage.records import all_rows, insert, now_text, one, update
+from autozest.storage.sequences import next_reference
 
 REGISTRATION_PREFIX = "B"
 
@@ -119,7 +119,7 @@ class RegistrationService:
                 sale=sale_code,
             )
         number = badge or self.badge_for(buyer_id, sale_code)
-        reference = sequenced(REGISTRATION_PREFIX, date.today(), self._next())
+        reference = next_reference(self.conn, "registration", REGISTRATION_PREFIX)
         insert(
             self.conn,
             "registration",
@@ -139,10 +139,6 @@ class RegistrationService:
         )
         self._remember_badge(buyer_id, number)
         return self.get(reference)
-
-    def _next(self) -> int:
-        used = scalar(self.conn, "SELECT COUNT(*) FROM registration")
-        return int(used or 0) + 1
 
     def badge_for(self, buyer_id: str, sale_code: str) -> int:
         """The buyer's usual badge, or the lowest one free in this sale."""

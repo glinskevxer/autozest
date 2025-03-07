@@ -22,9 +22,9 @@ from typing import Any
 
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import NotFound, PolicyViolation, StateError, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money
 from autozest.storage.records import all_rows, insert, now_text, one, update
+from autozest.storage.sequences import next_reference
 
 TRANSPORT_PREFIX = "T"
 
@@ -169,7 +169,7 @@ class TransportService:
                     order=existing.id,
                 )
         day = on or date.today()
-        reference = sequenced(TRANSPORT_PREFIX, day, self._next(day))
+        reference = next_reference(self.conn, "transport_order", TRANSPORT_PREFIX, on=day)
         insert(
             self.conn,
             "transport_order",
@@ -188,14 +188,6 @@ class TransportService:
             },
         )
         return self.get(reference)
-
-    def _next(self, day: date) -> int:
-        rows = all_rows(
-            self.conn,
-            "SELECT id FROM transport_order WHERE id LIKE ?",
-            (f"{TRANSPORT_PREFIX}-{day.year}-%",),
-        )
-        return len(rows) + 1
 
     def get(self, reference: str) -> TransportOrder:
         row = one(self.conn, "SELECT * FROM transport_order WHERE id = ?", (reference,))

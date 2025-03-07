@@ -21,15 +21,15 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from enum import Enum
 
 from autozest.errors import PolicyViolation, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money, total
 from autozest.settlement.ledger import Account, Entry, Ledger, credit, debit
 from autozest.settlement.statements import Side, StatementService
-from autozest.storage.records import all_rows, scalar
+from autozest.storage.records import all_rows
+from autozest.storage.sequences import next_reference
 
 ADJUSTMENT_PREFIX = "J"
 
@@ -72,12 +72,6 @@ class AdjustmentService:
         self.ledger = Ledger(conn)
         self.statements = StatementService(conn)
 
-    def _next(self) -> int:
-        used = scalar(
-            self.conn, "SELECT COUNT(*) FROM ledger_entry WHERE source = 'adjustment'"
-        )
-        return int(used or 0) + 1
-
     def raise_adjustment(
         self,
         kind: AdjustmentKind,
@@ -95,7 +89,7 @@ class AdjustmentService:
         if not reason.strip():
             raise ValidationError("an adjustment needs a reason on the record")
         adjustment = Adjustment(
-            reference=sequenced(ADJUSTMENT_PREFIX, date.today(), self._next()),
+            reference=next_reference(self.conn, "ledger_entry", ADJUSTMENT_PREFIX),
             kind=kind,
             party_id=party_id,
             side=side,

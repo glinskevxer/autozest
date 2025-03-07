@@ -22,9 +22,9 @@ from typing import Any
 from autozest.block.models import RunStatus
 from autozest.block.sales import SaleRepository
 from autozest.errors import NotFound, PolicyViolation, ValidationError
-from autozest.identifiers import sequenced
 from autozest.money import Money, total
-from autozest.storage.records import all_rows, insert, one, scalar, update
+from autozest.storage.records import all_rows, insert, one, update
+from autozest.storage.sequences import next_reference
 
 LIMIT_PREFIX = "L"
 
@@ -100,7 +100,7 @@ class LimitService:
         existing = self.live(buyer_id, scope)
         if existing is not None:
             self.lift(existing.id, on=on)
-        reference = sequenced(LIMIT_PREFIX, on or date.today(), self._next())
+        reference = next_reference(self.conn, "purchase_limit", LIMIT_PREFIX, on=on)
         insert(
             self.conn,
             "purchase_limit",
@@ -116,9 +116,6 @@ class LimitService:
             },
         )
         return self.get(reference)
-
-    def _next(self) -> int:
-        return int(scalar(self.conn, "SELECT COUNT(*) FROM purchase_limit") or 0) + 1
 
     def get(self, reference: str) -> PurchaseLimit:
         row = one(self.conn, "SELECT * FROM purchase_limit WHERE id = ?", (reference,))

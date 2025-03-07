@@ -16,14 +16,14 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 from typing import Any
 
 from autozest.consignment.repository import ConsignmentRepository
 from autozest.errors import Conflict, NotFound, PolicyViolation, ValidationError
-from autozest.identifiers import sequenced
 from autozest.settlement.proceeds import ProceedsService
-from autozest.storage.records import all_rows, insert, now_text, one, scalar, update
+from autozest.storage.records import all_rows, insert, now_text, one, update
+from autozest.storage.sequences import next_reference
 
 RELEASE_PREFIX = "G"
 
@@ -162,7 +162,7 @@ class ReleaseService:
                 consignment=consignment_id,
                 holds=len(holds),
             )
-        reference = sequenced(RELEASE_PREFIX, date.today(), self._next())
+        reference = next_reference(self.conn, "gate_release", RELEASE_PREFIX)
         insert(
             self.conn,
             "gate_release",
@@ -178,9 +178,6 @@ class ReleaseService:
             },
         )
         return self.get_release(reference)
-
-    def _next(self) -> int:
-        return int(scalar(self.conn, "SELECT COUNT(*) FROM gate_release") or 0) + 1
 
     def get_release(self, reference: str) -> GateRelease:
         row = one(self.conn, "SELECT * FROM gate_release WHERE id = ?", (reference,))

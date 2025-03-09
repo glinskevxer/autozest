@@ -74,3 +74,33 @@ def test_the_aged_detail_is_reachable_from_here(floor: Floor) -> None:
     PostingService(floor.conn).post_sale(run_id)
     aged = dashboard.aged_side(floor.conn)
     assert aged.total == Money.parse("8545.00")
+
+
+def test_the_dashboard_honours_the_date_it_was_asked_about(floor: Floor) -> None:
+    """as_at reaches the reports underneath rather than being ignored.
+
+    It was accepted and dropped, so a dashboard asked about last month showed
+    this month's ageing and this month's escalations.
+    """
+    from datetime import date, datetime, timedelta
+
+    from autozest.arbitration.desk import ArbitrationDesk
+    from autozest.defects import DefectClass
+    from autozest.settlement.postings import PostingService
+
+    run_id = sold(floor)
+    sold_at = datetime(2024, 3, 12, 14, 30)
+    floor.conn.execute("UPDATE run SET ran_at = ? WHERE id = ?", (sold_at.isoformat(), run_id))
+    PostingService(floor.conn).post_sale(run_id)
+    ArbitrationDesk(floor.conn).open_claim(
+        run_id, "d-200", DefectClass.ENGINE, "knocking", at=sold_at + timedelta(hours=1)
+    )
+
+    now = dashboard.build(floor.conn, floor.code)
+    assert now.escalations == 0
+
+    much_later = dashboard.build(
+        floor.conn, floor.code, as_at=date.today() + timedelta(days=90)
+    )
+    assert much_later.escalations == 1
+    assert much_later.overdue_accounts == 1

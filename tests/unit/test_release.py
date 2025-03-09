@@ -46,7 +46,7 @@ def test_main_exits_one_when_something_fails(
     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
 ) -> None:
     monkeypatch.setattr(
-        release, "checks", lambda root=None: [release.Check("x", False, "broken")]
+        release, "checks", lambda _root=None: [release.Check("x", False, "broken")]
     )
     assert release.main() == 1
     assert "FAIL x" in capsys.readouterr().out

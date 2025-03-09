@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import sqlite3
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
 
 from autozest.money import Money
 from autozest.reporting import aging, disclosure, turnaround
@@ -55,10 +55,11 @@ def build(
     conn: sqlite3.Connection, sale_code: str | None = None, *, as_at: date | None = None
 ) -> Dashboard:
     """Gather it, from the reports that already know how."""
+    moment = datetime.combine(as_at, datetime.min.time()).astimezone() if as_at else None
     statements = StatementService(conn)
     ledger = Ledger(conn)
-    queue = claim_report.build(conn)
-    aged = aging.build(conn)
+    queue = claim_report.build(conn, as_at=moment)
+    aged = aging.build(conn, as_at=moment)
 
     gross = Money.zero()
     sold = 0

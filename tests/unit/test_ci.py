@@ -77,3 +77,39 @@ def test_nothing_in_the_workflow_uses_an_unpinned_action() -> None:
     for line in workflow_text().splitlines():
         if "uses:" in line:
             assert "@v" in line, line
+
+
+def test_the_pinned_tooling_is_the_tooling_the_workflow_uses() -> None:
+    """The workflow installs the dev extra, so the pins are what it runs.
+
+    A workflow that pip installs ruff separately drifts from the pin inside a
+    month and the first anybody knows is a rule that fires locally and not in
+    the build, or the other way round.
+    """
+    text = workflow_text()
+    assert text.count('python -m pip install -e ".[dev]"') >= 3
+    assert "pip install ruff" not in text
+    assert "pip install mypy" not in text
+    assert "pip install pytest" not in text
+
+
+def test_the_build_tool_is_pinned_too() -> None:
+    assert re.search(r"pip install build==\d+\.\d+", workflow_text())
+
+
+def test_the_dev_extra_carries_everything_the_workflow_runs() -> None:
+    dev = project()["project"]["optional-dependencies"]["dev"]  # type: ignore[index]
+    names = {entry.split("==")[0] for entry in dev}
+    assert {"pytest", "pytest-cov", "coverage", "ruff", "mypy"} <= names
+
+
+def test_the_coverage_floor_is_configured_rather_than_a_flag() -> None:
+    """A floor passed on a command line is a floor somebody drops from one job."""
+    coverage = project()["tool"]["coverage"]["report"]  # type: ignore[index]
+    assert coverage["fail_under"] >= 90
+    assert "--cov" in workflow_text()
+
+
+def test_the_build_backend_pin_matches_the_dev_toolchain() -> None:
+    build_requires = project()["build-system"]["requires"]  # type: ignore[index]
+    assert any(entry.startswith("hatchling==") for entry in build_requires)

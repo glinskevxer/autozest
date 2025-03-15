@@ -97,6 +97,21 @@ jobs:
           az --db "$RUNNER_TEMP/ci.sqlite3" settle trial-balance
           az --db "$RUNNER_TEMP/ci.sqlite3" report dashboard --sale S-20240312
 
+  audit:
+    name: dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - name: install
+        run: python -m pip install -e ".[dev]" pip-audit==2.7.3
+      - name: audit the installed dependencies
+        run: python -m pip_audit --strict --progress-spinner off
+
   package:
     name: it builds
     runs-on: ubuntu-latest

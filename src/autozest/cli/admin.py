@@ -20,6 +20,7 @@ import click
 from autozest.audit import AuditLog
 from autozest.cli.context import Context
 from autozest.health import examine
+from autozest.reporting.manual import render as render_manual
 from autozest.reporting.text import Align, Column, Table, key_values
 from autozest.retention import archive_sale, prune
 from autozest.retention import candidates as retention_candidates
@@ -314,3 +315,24 @@ def redact_copy(ctx: Context, target: str | None, salt: str, dry_run: bool) -> N
         return
     written = redact(conn, target, salt=salt)
     click.echo(written.summary())
+
+
+@admin.command("manual")
+@click.option("--out", "out_path", default=None, help="Write to a file rather than stdout.")
+def manual(out_path: str | None) -> None:
+    """The operator manual, written from the commands themselves.
+
+    Generated rather than kept, because a manual that is kept is a manual that
+    is wrong within a quarter.
+    """
+    from autozest.cli.main import cli as root
+
+    lines = render_manual(root)
+    if out_path:
+        target = Path(out_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        click.echo(f"{len(lines)} lines to {target}")
+        return
+    for line in lines:
+        click.echo(line)

@@ -197,3 +197,16 @@ def test_a_redacted_copy_is_written(initialised: Invoke, tmp_path: Path) -> None
     output = initialised("admin", "redact", str(target)).output
     assert "written to" in output
     assert target.exists()
+
+
+def test_the_manual_prints(initialised: Invoke) -> None:
+    output = initialised("admin", "manual").output
+    assert "az consign register" in output
+    assert "Exit statuses" in output
+
+
+def test_the_manual_writes_to_a_file(initialised: Invoke, tmp_path: Path) -> None:
+    target = tmp_path / "manual.txt"
+    result = initialised("admin", "manual", "--out", str(target)).output
+    assert "lines to" in result
+    assert "az settle post" in target.read_text()

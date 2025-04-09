@@ -22,6 +22,7 @@ from autozest.cli.context import Context
 from autozest.dispatch import DispatchService
 from autozest.money import Money
 from autozest.notices import NoticeQueue
+from autozest.reporting import documents
 from autozest.reporting.text import Column, Table, key_values, money_column
 from autozest.settlement.adjustments import AdjustmentKind, AdjustmentService
 from autozest.settlement.fees import Service
@@ -119,6 +120,33 @@ def pay(
         sale_code=sale_code,
     )
     click.echo(f"{payment.id}  {payment.amount} from {party} by {method}")
+
+
+@settle.command("document")
+@click.argument("party")
+@click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
+@click.option("--sale", "sale_code", default=None)
+@click.option("--out", "out_path", default=None, help="Write to a file rather than stdout.")
+@pass_context
+def document(
+    ctx: Context, party: str, side: str, sale_code: str | None, out_path: str | None
+) -> None:
+    """The invoice or statement as a document somebody can pay from."""
+    built = documents.build(
+        ctx.open(),
+        Side(side),
+        party,
+        sale_code=sale_code,
+        settings=ctx.settings,
+        calendar=ctx.policies.calendar,
+    )
+    if out_path:
+        target = Path(out_path)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(built.text() + "\n", encoding="utf-8")
+        click.echo(f"{built.reference}  {built.balance}  written to {target}")
+        return
+    click.echo(built.text())
 
 
 @settle.command("statement")

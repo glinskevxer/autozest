@@ -308,3 +308,20 @@ def test_the_dispatch_job_is_safe_to_run_twice(office: Invoke) -> None:
     first = office("settle", "dispatch").output
     assert "queued" in first
     assert "0 queued" in office("settle", "dispatch").output
+
+
+def test_the_invoice_document(office: Invoke) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    output = office("settle", "document", "d-200").output
+    assert "INVOICE" in output
+    assert "Please send 8,545.00" in " ".join(output.split())
+
+
+def test_the_document_writes_to_a_file(office: Invoke, tmp_path: Path) -> None:
+    through_the_block(office)
+    office("settle", "post", "S-20240312")
+    target = tmp_path / "invoice.txt"
+    result = office("settle", "document", "d-200", "--out", str(target)).output
+    assert "written to" in result
+    assert "INVOICE" in target.read_text()

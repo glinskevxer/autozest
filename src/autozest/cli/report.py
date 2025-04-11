@@ -10,7 +10,15 @@ from __future__ import annotations
 import click
 
 from autozest.cli.context import Context
-from autozest.reporting import aging, dashboard, disclosure, exports, reference, turnaround
+from autozest.reporting import (
+    aging,
+    concentration,
+    dashboard,
+    disclosure,
+    exports,
+    reference,
+    turnaround,
+)
 from autozest.reporting import recap as recap_report
 from autozest.reporting.performance import PerformanceService
 from autozest.reporting.text import Align, Column, Table, money_column
@@ -184,4 +192,13 @@ def disclosure_audit(ctx: Context, code: str) -> None:
 def dashboard_report(ctx: Context, sale_code: str | None) -> None:
     """The numbers somebody actually asks for, on one screen."""
     for line in dashboard.render(ctx.open(), sale_code):
+        click.echo(line)
+
+
+@report.command("concentration")
+@click.argument("code")
+@pass_context
+def concentration_report(ctx: Context, code: str) -> None:
+    """How much of a sale rests on one buyer or one seller."""
+    for line in concentration.render(ctx.open(), code):
         click.echo(line)

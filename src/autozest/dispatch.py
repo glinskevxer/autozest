@@ -21,6 +21,7 @@ from autozest.arbitration.claims import ClaimRepository, ClaimStatus
 from autozest.block.models import RunStatus
 from autozest.block.sales import SaleRepository
 from autozest.consignment.repository import ConsignmentRepository
+from autozest.contacts import ContactBook
 from autozest.money import Money
 from autozest.notices import Channel, NoticeQueue, claim_decided, payment_due, title_chase
 from autozest.settlement.payments import PaymentService
@@ -57,6 +58,7 @@ class DispatchService:
         self.consignments = ConsignmentRepository(conn)
         self.statements = StatementService(conn)
         self.payments = PaymentService(conn)
+        self.contacts = ContactBook(conn)
 
     def already_queued(self, reference: str) -> bool:
         rows = all_rows(
@@ -73,11 +75,14 @@ class DispatchService:
         skipped = 0
         kinds: dict[str, int] = {}
 
-        for kind, party, subject, body, reference, channel in self._wanted(today):
+        for kind, party, subject, body, reference, _ in self._wanted(today):
             if self.already_queued(reference):
                 skipped += 1
                 continue
-            self.notices.queue(kind, party, subject, body, channel=channel, reference=reference)
+            routing = self.contacts.route(party, kind)
+            self.notices.queue(
+                kind, party, subject, body, channel=routing.channel, reference=reference
+            )
             queued += 1
             kinds[kind] = kinds.get(kind, 0) + 1
         return Dispatch(queued=queued, already_there=skipped, kinds=kinds)

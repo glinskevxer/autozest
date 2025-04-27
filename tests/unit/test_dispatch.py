@@ -126,3 +126,31 @@ def test_the_next_chase_date(dispatch: DispatchService) -> None:
 def test_the_summary_reads(floor: Floor, dispatch: DispatchService) -> None:
     sold_and_posted(floor)
     assert "queued" in dispatch.run(as_at=SALE_DAY).summary()
+
+
+def test_a_notice_goes_the_way_the_party_asked(floor: Floor, dispatch: DispatchService) -> None:
+    from autozest.contacts import ContactBook
+    from autozest.notices import Channel
+
+    sold_and_posted(floor)
+    ContactBook(floor.conn).set_preference(
+        "d-200",
+        "payment.due",
+        Channel.EMAIL,
+        "ap@kestrel.example",
+        verified_on=date(2024, 1, 1),
+    )
+    dispatch.run(as_at=SALE_DAY)
+    queued = NoticeQueue(floor.conn).pending()
+    assert queued[0].channel is Channel.EMAIL
+
+
+def test_a_party_with_nothing_on_file_gets_post(
+    floor: Floor, dispatch: DispatchService
+) -> None:
+    from autozest.notices import Channel
+
+    sold_and_posted(floor)
+    dispatch.run(as_at=SALE_DAY)
+    queued = NoticeQueue(floor.conn).pending()
+    assert queued[0].channel is Channel.POST

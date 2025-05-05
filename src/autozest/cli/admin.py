@@ -28,6 +28,8 @@ from autozest.storage.db import connect, integrity_problems, table_names
 from autozest.storage.migrator import current_version, load_migrations, pending
 from autozest.tools.check_migrations import problems as migration_problems
 from autozest.tools.demo import build as build_demo
+from autozest.tools.doctor import examine as examine_database
+from autozest.tools.doctor import repair as repair_database
 from autozest.tools.explain import plans
 from autozest.tools.redact import redact, would_change
 
@@ -336,3 +338,26 @@ def manual(out_path: str | None) -> None:
         return
     for line in lines:
         click.echo(line)
+
+
+@admin.command("doctor")
+@click.option("--repair", "do_repair", is_flag=True, help="Fix the safe half.")
+@pass_context
+def doctor(ctx: Context, do_repair: bool) -> None:
+    """What is wrong with this database, and optionally fix the safe half.
+
+    Only the findings marked fixable are ever touched. A ledger entry that does
+    not balance is not one of them, because the fix depends on which side is
+    wrong and nothing here can know that.
+    """
+    conn = ctx.open()
+    report = examine_database(conn)
+    for finding in report.findings:
+        click.echo(str(finding))
+    click.echo(report.summary())
+    if do_repair and report.repairable:
+        fixed = repair_database(conn)
+        for code, rows in sorted(fixed.items()):
+            click.echo(f"fixed {code}: {rows} rows")
+    if report.needs_a_person:
+        raise SystemExit(1)

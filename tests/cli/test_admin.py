@@ -210,3 +210,26 @@ def test_the_manual_writes_to_a_file(initialised: Invoke, tmp_path: Path) -> Non
     result = initialised("admin", "manual", "--out", str(target)).output
     assert "lines to" in result
     assert "az settle post" in target.read_text()
+
+
+def test_the_doctor_is_quiet_on_a_fresh_database(initialised: Invoke) -> None:
+    assert "nothing wrong" in initialised("admin", "doctor").output
+
+
+def test_the_doctor_exits_non_zero_when_a_person_is_needed(
+    initialised: Invoke, db_path: Path
+) -> None:
+    from autozest.storage.db import connect
+
+    conn = connect(db_path)
+    conn.execute(
+        "INSERT INTO ledger_entry (reference, memo, source, posted_at) "
+        "VALUES ('x', 'lopsided', 'test', '2024-03-12T00:00:00+00:00')"
+    )
+    conn.execute(
+        "INSERT INTO ledger_line (entry_id, account, debit_cents) VALUES (1, 'cash', 100)"
+    )
+    conn.close()
+    result = initialised("admin", "doctor", expect=1)
+    assert "unbalanced_entry" in result.output
+    assert "for a person" in result.output

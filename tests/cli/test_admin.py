@@ -233,3 +233,14 @@ def test_the_doctor_exits_non_zero_when_a_person_is_needed(
     result = initialised("admin", "doctor", expect=1)
     assert "unbalanced_entry" in result.output
     assert "for a person" in result.output
+
+
+def test_the_history_prints(initialised: Invoke) -> None:
+    output = initialised("admin", "history").output
+    assert "0.1.0" in output
+    assert "this build is" in output
+
+
+def test_breaking_changes_since_a_version(initialised: Invoke) -> None:
+    output = initialised("admin", "history", "--since", "0.0.1").output
+    assert "0 breaking changes since 0.0.1" in output

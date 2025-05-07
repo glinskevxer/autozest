@@ -20,6 +20,8 @@ import click
 from autozest.audit import AuditLog
 from autozest.cli.context import Context
 from autozest.health import examine
+from autozest.history import current as current_release
+from autozest.history import render as render_history
 from autozest.reporting.manual import render as render_manual
 from autozest.reporting.text import Align, Column, Table, key_values
 from autozest.retention import archive_sale, prune
@@ -361,3 +363,20 @@ def doctor(ctx: Context, do_repair: bool) -> None:
             click.echo(f"fixed {code}: {rows} rows")
     if report.needs_a_person:
         raise SystemExit(1)
+
+
+@admin.command("history")
+@click.option("--since", default=None, help="Only what breaks between there and here.")
+def history(since: str | None) -> None:
+    """What changed in each version."""
+    if since:
+        from autozest.history import breaking_since
+
+        breaks = breaking_since(since)
+        for item in breaks:
+            click.echo(f"breaking  {item}")
+        click.echo(f"{len(breaks)} breaking changes since {since}")
+        return
+    for line in render_history():
+        click.echo(line)
+    click.echo(f"this build is {current_release().version}")

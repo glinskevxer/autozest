@@ -46,6 +46,7 @@ CATALOGUE: tuple[Rule, ...] = (
     _rule("intake.release", "consignment", "only a no sale is released back"),
     _rule("inspection.not_arrived", "inspection", "the unit is not through the gate"),
     _rule("inspection.closed", "inspection", "the report is signed"),
+    _rule("inspection.template", "inspection", "a required check has not been answered"),
     _rule("announcement.after_sale", "inspection", "the unit has already sold"),
     _rule("sale.no_lanes", "block", "a sale needs a lane"),
     _rule("sale.frozen", "block", "the run order is printed"),

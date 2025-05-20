@@ -38,7 +38,7 @@ def title() -> None:
 
 @title.command("expect")
 @click.argument("token")
-@click.option("--actor", default="title")
+@click.option("--actor", default="title", help="Whose name goes on the line.")
 @pass_context
 def expect(ctx: Context, token: str, actor: str) -> None:
     """Open a title record on a consigned unit."""
@@ -50,9 +50,9 @@ def expect(ctx: Context, token: str, actor: str) -> None:
 @title.command("receive")
 @click.argument("token")
 @click.option("--brand", default="clean", type=BRAND_CHOICE)
-@click.option("--state", "issuing_state", default=None)
-@click.option("--number", "title_number", default=None)
-@click.option("--actor", default="title")
+@click.option("--state", "issuing_state", default=None, help="Two letter issuing state.")
+@click.option("--number", "title_number", default=None, help="The number on the document.")
+@click.option("--actor", default="title", help="Whose name goes on the line.")
 @pass_context
 def receive(
     ctx: Context,
@@ -83,8 +83,8 @@ def receive(
 @title.command("mark")
 @click.argument("token")
 @click.argument("status", type=click.Choice([s.value for s in TitleStatus]))
-@click.option("--detail", default=None)
-@click.option("--actor", default="title")
+@click.option("--detail", default=None, help="Anything worth recording alongside it.")
+@click.option("--actor", default="title", help="Whose name goes on the line.")
 @pass_context
 def mark(ctx: Context, token: str, status: str, detail: str | None, actor: str) -> None:
     """Move a title record, for a duplicate application or an attorney lane."""
@@ -97,7 +97,7 @@ def mark(ctx: Context, token: str, status: str, detail: str | None, actor: str) 
 
 @title.command("send")
 @click.argument("token")
-@click.option("--actor", default="title")
+@click.option("--actor", default="title", help="Whose name goes on the line.")
 @pass_context
 def send(ctx: Context, token: str, actor: str) -> None:
     """Send a title to the buyer, if nothing is holding it."""
@@ -108,7 +108,7 @@ def send(ctx: Context, token: str, actor: str) -> None:
 
 @title.command("release")
 @click.argument("token")
-@click.option("--actor", default="title")
+@click.option("--actor", default="title", help="Whose name goes on the line.")
 @pass_context
 def release(ctx: Context, token: str, actor: str) -> None:
     """Give a title back on a unit that did not sell."""

@@ -49,7 +49,11 @@ def arb() -> None:
 @click.argument("code")
 @click.argument("run")
 @click.option(
-    "--class", "defect", default=None, type=click.Choice([c.value for c in DefectClass])
+    "--class",
+    "defect",
+    default=None,
+    type=click.Choice([c.value for c in DefectClass]),
+    help="The defect class.",
 )
 @pass_context
 def assess(ctx: Context, code: str, run: str, defect: str | None) -> None:
@@ -72,13 +76,17 @@ def assess(ctx: Context, code: str, run: str, defect: str | None) -> None:
 @arb.command("open")
 @click.argument("code")
 @click.argument("run")
-@click.option("--claimant", required=True)
+@click.option("--claimant", required=True, help="The buyer bringing it.")
 @click.option(
-    "--class", "defect", required=True, type=click.Choice([c.value for c in DefectClass])
+    "--class",
+    "defect",
+    required=True,
+    type=click.Choice([c.value for c in DefectClass]),
+    help="The defect class.",
 )
-@click.option("--summary", required=True)
+@click.option("--summary", required=True, help="What the buyer says is wrong.")
 @click.option("--claimed", default=None, help="What the buyer is asking for.")
-@click.option("--actor", default="desk")
+@click.option("--actor", default="desk", help="Whose name goes on the line.")
 @pass_context
 def open_claim(
     ctx: Context,
@@ -105,8 +113,8 @@ def open_claim(
 
 @arb.command("take")
 @click.argument("claim")
-@click.option("--actor", default="desk")
-@click.option("--note", default="")
+@click.option("--actor", default="desk", help="Whose name goes on the line.")
+@click.option("--note", default="", help="A note for the record.")
 @pass_context
 def take(ctx: Context, claim: str, actor: str, note: str) -> None:
     """Move a claim into review."""
@@ -117,9 +125,9 @@ def take(ctx: Context, claim: str, actor: str, note: str) -> None:
 @arb.command("resolve")
 @click.argument("claim")
 @click.argument("resolution", type=click.Choice([r.value for r in Resolution]))
-@click.option("--amount", default=None)
-@click.option("--reason", required=True)
-@click.option("--actor", default="desk")
+@click.option("--amount", default=None, help="An amount of money.")
+@click.option("--reason", required=True, help="Why, for the record.")
+@click.option("--actor", default="desk", help="Whose name goes on the line.")
 @pass_context
 def resolve(
     ctx: Context, claim: str, resolution: str, amount: str | None, reason: str, actor: str
@@ -148,7 +156,7 @@ def resolve(
 @arb.command("withdraw")
 @click.argument("claim")
 @click.argument("reason")
-@click.option("--actor", default="desk")
+@click.option("--actor", default="desk", help="Whose name goes on the line.")
 @pass_context
 def withdraw(ctx: Context, claim: str, reason: str, actor: str) -> None:
     """Pull a claim at the buyer's request."""
@@ -156,7 +164,7 @@ def withdraw(ctx: Context, claim: str, reason: str, actor: str) -> None:
 
 
 @arb.command("queue")
-@click.option("--claimant", default=None)
+@click.option("--claimant", default=None, help="The buyer bringing it.")
 @pass_context
 def queue(ctx: Context, claimant: str | None) -> None:
     """Everything still open."""
@@ -227,8 +235,8 @@ def _when(moment: datetime | None) -> str:
 @click.argument("code")
 @click.argument("run")
 @click.option("--complete", is_flag=True, help="Record the result rather than ordering one.")
-@click.option("--passed/--failed", default=True)
-@click.option("--findings", default=None)
+@click.option("--passed/--failed", default=True, help="How the inspection came out.")
+@click.option("--findings", default=None, help="What the shop found.")
 @pass_context
 def inspect_run(
     ctx: Context, code: str, run: str, complete: bool, passed: bool, findings: str | None
@@ -300,7 +308,7 @@ def worklist(ctx: Context) -> None:
 @arb.command("appeal")
 @click.argument("claim")
 @click.option("--by", "raised_by", required=True, help="Buyer or seller account.")
-@click.option("--grounds", required=True)
+@click.option("--grounds", required=True, help="Why the decision is being challenged.")
 @pass_context
 def appeal(ctx: Context, claim: str, raised_by: str, grounds: str) -> None:
     """Challenge a decision. Three business days, either side, once."""
@@ -313,8 +321,8 @@ def appeal(ctx: Context, claim: str, raised_by: str, grounds: str) -> None:
 @click.argument(
     "outcome", type=click.Choice([s.value for s in AppealStatus if s is not AppealStatus.OPEN])
 )
-@click.option("--by", "decided_by", required=True)
-@click.option("--note", required=True)
+@click.option("--by", "decided_by", required=True, help="Who is doing it.")
+@click.option("--note", required=True, help="A note for the record.")
 @click.option("--amount", default=None, help="Required when varying.")
 @pass_context
 def appeal_decide(

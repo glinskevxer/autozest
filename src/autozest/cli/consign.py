@@ -50,7 +50,7 @@ def consign() -> None:
 @click.option("--floor", default=None, help="Reserve, as an amount.")
 @click.option("--transport", default=None, help="Transport reference.")
 @click.option("--no-title", is_flag=True, help="The title is not coming with the unit.")
-@click.option("--note", default=None)
+@click.option("--note", default=None, help="A note for the record.")
 @pass_context
 def register(
     ctx: Context,
@@ -78,7 +78,7 @@ def register(
 @click.argument("token")
 @click.option("--keys", type=int, required=True, help="How many keys came with it.")
 @click.option("--miles", type=int, required=True, help="What the odometer reads at the gate.")
-@click.option("--note", default=None)
+@click.option("--note", default=None, help="A note for the record.")
 @pass_context
 def check_in(ctx: Context, token: str, keys: int, miles: int, note: str | None) -> None:
     """Receive a unit at the gate, by reference, vin or transport paperwork."""
@@ -175,7 +175,7 @@ def inspect() -> None:
 
 @inspect.command("open")
 @click.argument("token")
-@click.option("--inspector", required=True)
+@click.option("--inspector", required=True, help="Who is doing the inspection.")
 @pass_context
 def open_report(ctx: Context, token: str, inspector: str) -> None:
     """Start a condition report on a unit that is through the gate."""
@@ -187,11 +187,21 @@ def open_report(ctx: Context, token: str, inspector: str) -> None:
 
 @inspect.command("damage")
 @click.argument("report")
-@click.option("--panel", required=True, type=click.Choice([p.value for p in Panel]))
-@click.option("--kind", required=True, type=click.Choice([k.value for k in DamageKind]))
-@click.option("--severity", required=True, type=click.IntRange(1, 5))
+@click.option(
+    "--panel",
+    required=True,
+    type=click.Choice([p.value for p in Panel]),
+    help="Where on the unit.",
+)
+@click.option(
+    "--kind",
+    required=True,
+    type=click.Choice([k.value for k in DamageKind]),
+    help="What was done to it.",
+)
+@click.option("--severity", required=True, type=click.IntRange(1, 5), help="One to five.")
 @click.option("--estimate", default=None, help="Override the matrix cost.")
-@click.option("--note", default=None)
+@click.option("--note", default=None, help="A note for the record.")
 @pass_context
 def add_damage(
     ctx: Context,
@@ -217,13 +227,21 @@ def add_damage(
 
 @inspect.command("sign")
 @click.argument("report")
-@click.option("--not-drivable", is_flag=True)
-@click.option("--no-start", is_flag=True)
-@click.option("--tread", type=click.IntRange(0, 12), default=None)
+@click.option("--not-drivable", is_flag=True, help="It will not move under its own power.")
+@click.option("--no-start", is_flag=True, help="The engine does not start.")
+@click.option(
+    "--tread",
+    type=click.IntRange(0, 12),
+    default=None,
+    help="Shallowest tyre, in thirty seconds of an inch.",
+)
 @click.option("--body-on-frame", is_flag=True, help="Not a unibody.")
 @click.option("--value", default=None, help="What it would be worth clean.")
 @click.option(
-    "--declare", multiple=True, type=click.Choice([c.value for c in AnnouncementCode])
+    "--declare",
+    multiple=True,
+    type=click.Choice([c.value for c in AnnouncementCode]),
+    help="Something the seller declared.",
 )
 @pass_context
 def sign(
@@ -337,7 +355,7 @@ def history(ctx: Context, vin: str) -> None:
 
 
 @inspect.command("queue")
-@click.option("--limit", default=20, show_default=True)
+@click.option("--limit", default=20, show_default=True, help="Line id and the new amount.")
 @pass_context
 def queue(ctx: Context, limit: int) -> None:
     """What to inspect next, in the order it costs least to leave.

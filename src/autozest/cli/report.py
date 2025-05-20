@@ -90,7 +90,7 @@ def aged(ctx: Context, side: str) -> None:
 
 
 @report.command("sellers")
-@click.option("--sale", "sale_code", default=None)
+@click.option("--sale", "sale_code", default=None, help="Narrow to one sale.")
 @pass_context
 def sellers(ctx: Context, sale_code: str | None) -> None:
     """Sell through, the gap to the floor, and how often units come back."""
@@ -126,7 +126,7 @@ def sellers(ctx: Context, sale_code: str | None) -> None:
 
 
 @report.command("buyers")
-@click.option("--sale", "sale_code", default=None)
+@click.option("--sale", "sale_code", default=None, help="Narrow to one sale.")
 @pass_context
 def buyers(ctx: Context, sale_code: str | None) -> None:
     """Who bought what."""

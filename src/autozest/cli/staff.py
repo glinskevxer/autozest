@@ -44,7 +44,7 @@ def retire(ctx: Context, staff_id: str) -> None:
 
 
 @roster.command("people")
-@click.option("--role", default=None, type=ROLE_CHOICE)
+@click.option("--role", default=None, type=ROLE_CHOICE, help="Narrow to one role.")
 @pass_context
 def people(ctx: Context, role: str | None) -> None:
     """Who is on the staff list."""

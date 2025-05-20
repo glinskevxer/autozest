@@ -34,7 +34,7 @@ def desk(initialised: Invoke, db_path: Path) -> Invoke:
 
 
 def test_a_guide_value_and_the_advice_off_it(desk: Invoke) -> None:
-    desk("market", "guide", "Honda", "Accord", "2019", "clean", "9000.00")
+    desk("market", "guide", "Honda", "Accord", "9000.00", "--year", "2019")
     output = desk("market", "advise", VIN).output
     assert "9,000.00" in output
     assert "7,920.00" in output

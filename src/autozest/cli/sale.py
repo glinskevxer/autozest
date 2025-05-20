@@ -66,7 +66,7 @@ def sale() -> None:
 
 @sale.command("create")
 @click.argument("when")
-@click.option("--title", required=True)
+@click.option("--title", required=True, help="What the sale is called.")
 @click.option("--lanes", default="A:100", help="Lane letters and capacities, A:100,B:80.")
 @pass_context
 def create(ctx: Context, when: str, title: str, lanes: str) -> None:
@@ -79,7 +79,7 @@ def create(ctx: Context, when: str, title: str, lanes: str) -> None:
 
 @sale.command("catalogue")
 @click.argument("code")
-@click.option("--lane", required=True)
+@click.option("--lane", required=True, help="One lane letter.")
 @click.option(
     "--unit", "units", multiple=True, help="Consignment references, or all that are ready."
 )
@@ -104,7 +104,7 @@ def catalogue(
 
 @sale.command("runs")
 @click.argument("code")
-@click.option("--lane", default=None)
+@click.option("--lane", default=None, help="One lane letter.")
 @pass_context
 def runs(ctx: Context, code: str, lane: str | None) -> None:
     """The run sheet."""
@@ -195,10 +195,10 @@ def ready(ctx: Context, code: str) -> None:
 
 @sale.command("template")
 @click.argument("action", type=click.Choice(["add", "list", "build", "next", "retire"]))
-@click.option("--id", "template_id", default=None)
-@click.option("--name", default=None)
+@click.option("--id", "template_id", default=None, help="The record to act on.")
+@click.option("--name", default=None, help="What to call it.")
 @click.option("--weekday", type=click.IntRange(0, 6), default=None, help="0 is Monday.")
-@click.option("--title", default=None)
+@click.option("--title", default=None, help="What the sale is called.")
 @click.option("--lanes", default="A:100", help="Lane letters and capacities, A:100,B:80.")
 @click.option("--on", "on_date", default=None, help="The date to build, for build.")
 @pass_context

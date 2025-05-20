@@ -25,10 +25,10 @@ def yard() -> None:
 
 @yard.command("add-space")
 @click.argument("space_id")
-@click.option("--zone", required=True)
-@click.option("--row", "row_label", required=True)
-@click.option("--number", type=int, required=True)
-@click.option("--covered", is_flag=True)
+@click.option("--zone", required=True, help="Which part of the site.")
+@click.option("--row", "row_label", required=True, help="The row label.")
+@click.option("--number", type=int, required=True, help="The number on the document.")
+@click.option("--covered", is_flag=True, help="Under cover only.")
 @pass_context
 def add_space(
     ctx: Context, space_id: str, zone: str, row_label: str, number: int, covered: bool
@@ -44,8 +44,8 @@ def add_space(
 @yard.command("put")
 @click.argument("token")
 @click.argument("space_id")
-@click.option("--by", "moved_by", required=True)
-@click.option("--reason", default=None)
+@click.option("--by", "moved_by", required=True, help="Who is doing it.")
+@click.option("--reason", default=None, help="Why, for the record.")
 @pass_context
 def put(ctx: Context, token: str, space_id: str, moved_by: str, reason: str | None) -> None:
     """Park a unit."""
@@ -71,8 +71,8 @@ def find(ctx: Context, token: str) -> None:
 
 @yard.command("out")
 @click.argument("token")
-@click.option("--by", "moved_by", required=True)
-@click.option("--reason", required=True)
+@click.option("--by", "moved_by", required=True, help="Who is doing it.")
+@click.option("--reason", required=True, help="Why, for the record.")
 @pass_context
 def out(ctx: Context, token: str, moved_by: str, reason: str) -> None:
     """Record a unit leaving the yard."""
@@ -83,8 +83,8 @@ def out(ctx: Context, token: str, moved_by: str, reason: str) -> None:
 
 
 @yard.command("free")
-@click.option("--zone", default=None)
-@click.option("--covered", is_flag=True)
+@click.option("--zone", default=None, help="Which part of the site.")
+@click.option("--covered", is_flag=True, help="Under cover only.")
 @pass_context
 def free(ctx: Context, zone: str | None, covered: bool) -> None:
     """Spaces that can take a unit."""
@@ -182,7 +182,7 @@ def cabinet(ctx: Context) -> None:
 @gate.command("release")
 @click.argument("token")
 @click.argument("to")
-@click.option("--by", "authorised_by", required=True)
+@click.option("--by", "authorised_by", required=True, help="Who is doing it.")
 @click.option("--override", default=None, help="Reason for going past a hold.")
 @pass_context
 def release(

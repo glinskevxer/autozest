@@ -101,7 +101,7 @@ def add_service(ctx: Context, code: str, run: str, service: str, amount: str | N
 @click.argument("amount")
 @click.option("--method", default="wire", type=click.Choice([m.value for m in Method]))
 @click.option("--reference", default=None, help="Cheque or wire number.")
-@click.option("--sale", "sale_code", default=None)
+@click.option("--sale", "sale_code", default=None, help="Narrow to one sale.")
 @pass_context
 def pay(
     ctx: Context,
@@ -125,7 +125,7 @@ def pay(
 @settle.command("document")
 @click.argument("party")
 @click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
-@click.option("--sale", "sale_code", default=None)
+@click.option("--sale", "sale_code", default=None, help="Narrow to one sale.")
 @click.option("--out", "out_path", default=None, help="Write to a file rather than stdout.")
 @pass_context
 def document(
@@ -152,7 +152,7 @@ def document(
 @settle.command("statement")
 @click.argument("party")
 @click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
-@click.option("--sale", "sale_code", default=None)
+@click.option("--sale", "sale_code", default=None, help="Narrow to one sale.")
 @pass_context
 def statement(ctx: Context, party: str, side: str, sale_code: str | None) -> None:
     """A buyer invoice or a seller statement."""
@@ -185,9 +185,9 @@ def holds(ctx: Context, token: str) -> None:
 @settle.command("release")
 @click.argument("token")
 @click.option("--lien", default=None, help="Payoff to come off the top.")
-@click.option("--lienholder", default=None)
+@click.option("--lienholder", default=None, help="Who the payoff goes to.")
 @click.option("--method", default="cheque", type=click.Choice([m.value for m in Method]))
-@click.option("--reference", default=None)
+@click.option("--reference", default=None, help="Cheque or wire number.")
 @pass_context
 def release(
     ctx: Context,
@@ -264,9 +264,22 @@ def trial_balance(ctx: Context) -> None:
     metavar="ID LENDER LIMIT",
     help="Open a line for this buyer.",
 )
-@click.option("--limit", "new_limit", nargs=2, default=None, metavar="ID AMOUNT")
-@click.option("--suspend", "suspend_id", default=None, metavar="ID")
-@click.option("--reinstate", "reinstate_id", default=None, metavar="ID")
+@click.option(
+    "--limit",
+    "new_limit",
+    nargs=2,
+    default=None,
+    metavar="ID AMOUNT",
+    help="Line id and the new amount.",
+)
+@click.option("--suspend", "suspend_id", default=None, metavar="ID", help="Line id to suspend.")
+@click.option(
+    "--reinstate",
+    "reinstate_id",
+    default=None,
+    metavar="ID",
+    help="Line id to put back in service.",
+)
 @pass_context
 def credit(
     ctx: Context,
@@ -307,9 +320,9 @@ def credit(
 @click.argument("action", type=PERIOD_ACTIONS)
 @click.option("--from", "starts_on", default=None, help="First day, for open.")
 @click.option("--to", "ends_on", default=None, help="Last day, for open.")
-@click.option("--id", "period_id", default=None)
-@click.option("--by", "closed_by", default=None)
-@click.option("--note", default=None)
+@click.option("--id", "period_id", default=None, help="The record to act on.")
+@click.option("--by", "closed_by", default=None, help="Who is doing it.")
+@click.option("--note", default=None, help="A note for the record.")
 @pass_context
 def period(
     ctx: Context,
@@ -358,8 +371,10 @@ def period(
 
 
 @settle.command("notices")
-@click.option("--party", default=None)
-@click.option("--stuck", "only_stuck", is_flag=True)
+@click.option("--party", default=None, help="Narrow to one account.")
+@click.option(
+    "--stuck", "only_stuck", is_flag=True, help="Only the ones that failed too often."
+)
 @pass_context
 def notices(ctx: Context, party: str | None, only_stuck: bool) -> None:
     """What is waiting to go out."""
@@ -415,8 +430,8 @@ def reconcile(ctx: Context, path: str, really: bool) -> None:
 @click.argument("kind", type=click.Choice([k.value for k in AdjustmentKind]))
 @click.argument("party")
 @click.argument("amount")
-@click.option("--reason", required=True)
-@click.option("--by", "raised_by", required=True)
+@click.option("--reason", required=True, help="Why, for the record.")
+@click.option("--by", "raised_by", required=True, help="Who is doing it.")
 @click.option("--approved-by", default=None, help="Needed over the threshold.")
 @click.option("--side", default="buyer", type=click.Choice([s.value for s in Side]))
 @pass_context

@@ -34,10 +34,10 @@ def market() -> None:
 @market.command("guide")
 @click.argument("make")
 @click.argument("model")
-@click.argument("model_year", type=int)
-@click.argument("band", type=BAND_CHOICE)
 @click.argument("value")
-@click.option("--source", default="guide", show_default=True)
+@click.option("--year", "model_year", type=int, required=True, help="Model year.")
+@click.option("--band", default="clean", type=BAND_CHOICE, help="Which grade band.")
+@click.option("--source", default="guide", show_default=True, help="Where it came from.")
 @pass_context
 def add_guide(
     ctx: Context, make: str, model: str, model_year: int, band: str, value: str, source: str
@@ -93,8 +93,8 @@ def limits() -> None:
 @click.argument("buyer")
 @click.argument("scope", type=SCOPE_CHOICE)
 @click.argument("amount")
-@click.option("--reason", required=True)
-@click.option("--by", "set_by", required=True)
+@click.option("--reason", required=True, help="Why, for the record.")
+@click.option("--by", "set_by", required=True, help="Who is doing it.")
 @click.option("--imposed", is_flag=True, help="Set by us rather than asked for.")
 @pass_context
 def set_limit(

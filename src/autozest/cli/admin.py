@@ -117,10 +117,10 @@ def stats(ctx: Context) -> None:
 
 
 @admin.command("audit")
-@click.option("--actor", default=None)
+@click.option("--actor", default=None, help="Whose name goes on the line.")
 @click.option("--subject", default=None, help="A kind of record, such as consignment.")
-@click.option("--id", "subject_id", default=None)
-@click.option("--limit", default=30, show_default=True)
+@click.option("--id", "subject_id", default=None, help="The record to act on.")
+@click.option("--limit", default=30, show_default=True, help="Line id and the new amount.")
 @pass_context
 def audit(
     ctx: Context, actor: str | None, subject: str | None, subject_id: str | None, limit: int
@@ -142,7 +142,7 @@ def audit(
 @click.argument("subject")
 @click.argument("subject_id")
 @click.argument("detail")
-@click.option("--actor", default=None)
+@click.option("--actor", default=None, help="Whose name goes on the line.")
 @pass_context
 def note(ctx: Context, subject: str, subject_id: str, detail: str, actor: str | None) -> None:
     """Put a line on the trail by hand."""

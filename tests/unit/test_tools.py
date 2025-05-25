@@ -87,3 +87,58 @@ def test_a_covering_index_counts_as_an_index() -> None:
     plan = explain.Plan(name="x", steps=("SEARCH lane USING COVERING INDEX lane_idx",))
     assert plan.uses_an_index
     assert plan.scans == ()
+
+
+def test_a_foreign_key_with_no_index_is_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = check_migrations.table_names
+
+    def with_a_bare_key(conn: sqlite3.Connection) -> list[str]:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS bare (id INTEGER PRIMARY KEY, "
+            "vin TEXT REFERENCES vehicle (vin))"
+        )
+        return original(conn)
+
+    monkeypatch.setattr(check_migrations, "table_names", with_a_bare_key)
+    found = check_migrations.problems()
+    assert any("no index behind it" in problem for problem in found)
+
+
+def test_a_composite_key_covered_by_one_index_is_not_reported() -> None:
+    """The first version of this checked columns one at a time.
+
+    It reported run.lane and lane_assignment.lane, both of which are the second
+    column of a perfectly good composite index, and cost an afternoon.
+    """
+    assert check_migrations.problems() == []
+
+
+def test_an_index_named_after_another_table_is_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original = check_migrations.table_names
+
+    def with_a_misnamed_index(conn: sqlite3.Connection) -> list[str]:
+        conn.execute("CREATE TABLE IF NOT EXISTS misnamed (id INTEGER PRIMARY KEY, x TEXT)")
+        conn.execute("CREATE INDEX IF NOT EXISTS elsewhere_idx ON misnamed (x)")
+        return original(conn)
+
+    monkeypatch.setattr(check_migrations, "table_names", with_a_misnamed_index)
+    found = check_migrations.problems()
+    assert any("is not named for it" in problem for problem in found)
+
+
+def test_money_stored_as_text_is_reported(monkeypatch: pytest.MonkeyPatch) -> None:
+    original = check_migrations.table_names
+
+    def with_text_money(conn: sqlite3.Connection) -> list[str]:
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS loose_money (id INTEGER PRIMARY KEY, amount_cents TEXT)"
+        )
+        return original(conn)
+
+    monkeypatch.setattr(check_migrations, "table_names", with_text_money)
+    found = check_migrations.problems()
+    assert any("should be INTEGER" in problem for problem in found)

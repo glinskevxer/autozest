@@ -105,8 +105,7 @@ def test_a_week_in_the_building(building: Invoke) -> None:
     az("sale", "open", "S-20240319")
     az("block", "bid", "S-20240319", "A001", "d-200", "8200.00")
     assert "sold" in az("block", "fall", "S-20240319", "A001").output
-    az("sale", "close", "S-20240319")
-    assert "1 sold of 1" in az("sale", "close", "S-20240319", expect=6).output or True
+    assert "1 sold of 1" in az("sale", "close", "S-20240319").output
 
     # Wednesday. Post, take the money, chase the title.
     az("settle", "post", "S-20240319")

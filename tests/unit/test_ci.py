@@ -113,3 +113,34 @@ def test_the_coverage_floor_is_configured_rather_than_a_flag() -> None:
 def test_the_build_backend_pin_matches_the_dev_toolchain() -> None:
     build_requires = project()["build-system"]["requires"]  # type: ignore[index]
     assert any(entry.startswith("hatchling==") for entry in build_requires)
+
+
+def test_the_docs_job_writes_the_manual_and_the_card() -> None:
+    text = workflow_text()
+    assert "\n  docs:" in text
+    assert "admin manual --out" in text
+    assert "report reference" in text
+    assert "admin history" in text
+
+
+def test_the_docs_are_kept_as_an_artefact() -> None:
+    text = workflow_text()
+    assert "upload-artifact@v4" in text
+    assert "retention-days" in text
+
+
+def test_every_job_that_installs_uses_the_same_two_ways() -> None:
+    """Either the dev extra for checking, or a plain install for using.
+
+    A job that installs something else is a job testing something other than
+    what ships.
+    """
+    installs = [line.strip() for line in workflow_text().splitlines() if "pip install" in line]
+    allowed = (
+        'run: python -m pip install -e ".[dev]"',
+        "run: python -m pip install .",
+        'run: python -m pip install -e ".[dev]" pip-audit==2.7.3',
+        "python -m pip install dist/*.whl",
+    )
+    for line in installs:
+        assert line in allowed or line.startswith("run: python -m pip install build=="), line

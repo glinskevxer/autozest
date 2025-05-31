@@ -21,6 +21,7 @@ import sqlite3
 from dataclasses import dataclass
 
 from autozest.arbitration.claims import ClaimRepository, ClaimStatus
+from autozest.audit import AuditLog
 from autozest.block.models import RunStatus
 from autozest.block.sales import SaleRepository
 from autozest.consignment.models import ConsignmentStatus
@@ -78,6 +79,7 @@ class ProceedsService:
         self.statements = StatementService(conn)
         self.payments = PaymentService(conn)
         self.ledger = Ledger(conn)
+        self.audit = AuditLog(conn)
 
     def position(self, consignment_id: str, lien: Money | None = None) -> ProceedsPosition:
         """What is owed, what is held back and why."""
@@ -181,6 +183,13 @@ class ProceedsService:
             method=method,
             reference=reference,
             note=f"proceeds for {consignment_id}",
+        )
+        self.audit.record(
+            "proceeds.released",
+            "consignment",
+            consignment_id,
+            f"{net} to {position.seller_id}"
+            + (f" after a {position.lien} payoff" if position.lien.cents else ""),
         )
         return net
 

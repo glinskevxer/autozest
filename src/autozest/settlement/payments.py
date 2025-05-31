@@ -20,6 +20,7 @@ from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 
+from autozest.audit import AuditLog
 from autozest.errors import Conflict, PolicyViolation, ValidationError
 from autozest.identifiers import sequenced
 from autozest.money import Money
@@ -71,6 +72,7 @@ class PaymentService:
         self.ledger = Ledger(conn)
         self.statements = StatementService(conn)
         self.calendar = calendar or DEFAULT_CALENDAR
+        self.audit = AuditLog(conn)
 
     def next_id(self, when: date | None = None) -> str:
         day = when or date.today()
@@ -107,9 +109,13 @@ class PaymentService:
                 ),
             )
         )
-        return self._record(
+        payment = self._record(
             buyer_id, Side.BUYER, amount, method, when, reference, sale_code, note, entry
         )
+        self.audit.record(
+            "payment.received", "account", buyer_id, f"{amount} by {method.value}"
+        )
+        return payment
 
     def pay_out(
         self,
@@ -154,9 +160,11 @@ class PaymentService:
                 ),
             )
         )
-        return self._record(
+        payment = self._record(
             seller_id, Side.SELLER, amount, method, when, reference, sale_code, note, entry
         )
+        self.audit.record("payment.paid", "account", seller_id, f"{amount} by {method.value}")
+        return payment
 
     def _record(
         self,

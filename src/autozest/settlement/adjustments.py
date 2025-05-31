@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 
+from autozest.audit import AuditLog
 from autozest.errors import PolicyViolation, ValidationError
 from autozest.money import Money, total
 from autozest.settlement.ledger import Account, Entry, Ledger, credit, debit
@@ -71,6 +72,7 @@ class AdjustmentService:
         self.conn = conn
         self.ledger = Ledger(conn)
         self.statements = StatementService(conn)
+        self.audit = AuditLog(conn)
 
     def raise_adjustment(
         self,
@@ -112,6 +114,13 @@ class AdjustmentService:
                 party=party_id,
             )
         self.ledger.post(self._entry(adjustment))
+        self.audit.record(
+            f"adjustment.{kind.value}",
+            "account",
+            party_id,
+            f"{amount} by {raised_by}"
+            + (f", approved by {approved_by}" if approved_by else ""),
+        )
         return adjustment
 
     def _entry(self, adjustment: Adjustment) -> Entry:

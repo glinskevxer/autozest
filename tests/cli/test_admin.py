@@ -244,3 +244,34 @@ def test_the_history_prints(initialised: Invoke) -> None:
 def test_breaking_changes_since_a_version(initialised: Invoke) -> None:
     output = initialised("admin", "history", "--since", "0.0.1").output
     assert "0 breaking changes since 0.0.1" in output
+
+
+def test_verify_passes_on_a_fresh_database(initialised: Invoke) -> None:
+    output = initialised("admin", "verify").output
+    assert "everything passes" in output
+    assert "health/" in output
+    assert "release/" in output
+
+
+def test_verify_can_print_only_what_failed(initialised: Invoke) -> None:
+    output = initialised("admin", "verify", "--quiet").output
+    assert "ok  " not in output
+    assert "everything passes" in output
+
+
+def test_verify_exits_non_zero_when_the_building_cannot_run(
+    initialised: Invoke, db_path: Path
+) -> None:
+    from autozest.storage.db import connect
+
+    conn = connect(db_path)
+    conn.execute(
+        "INSERT INTO ledger_entry (reference, memo, source, posted_at) "
+        "VALUES ('x', 'lopsided', 'test', '2024-03-12T00:00:00+00:00')"
+    )
+    conn.execute(
+        "INSERT INTO ledger_line (entry_id, account, debit_cents) VALUES (1, 'cash', 100)"
+    )
+    conn.close()
+    result = initialised("admin", "verify", expect=1)
+    assert "STOP" in result.output

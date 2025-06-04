@@ -34,6 +34,8 @@ from autozest.tools.doctor import examine as examine_database
 from autozest.tools.doctor import repair as repair_database
 from autozest.tools.explain import plans
 from autozest.tools.redact import redact, would_change
+from autozest.verify import render as render_verification
+from autozest.verify import verify as verify_everything
 
 pass_context = click.make_pass_decorator(Context)
 
@@ -380,3 +382,27 @@ def history(since: str | None) -> None:
     for line in render_history():
         click.echo(line)
     click.echo(f"this build is {current_release().version}")
+
+
+@admin.command("verify")
+@click.option("--quiet", is_flag=True, help="Only print what failed.")
+@pass_context
+def verify(ctx: Context, quiet: bool) -> None:
+    """Run every check there is and give one answer.
+
+    Changes nothing, which is what lets it go in a cron job. Exits non zero
+    only for the things that stop the building; the rest are printed for
+    somebody to look at this week.
+    """
+    conn = ctx.open()
+    result = verify_everything(conn, ctx.settings)
+    if quiet:
+        for item in result.failures:
+            click.echo(str(item))
+    else:
+        for line in render_verification(conn, ctx.settings):
+            click.echo(line)
+    if quiet:
+        click.echo(result.summary())
+    if not result.is_usable:
+        raise SystemExit(1)

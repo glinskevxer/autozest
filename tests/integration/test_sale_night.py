@@ -281,3 +281,58 @@ def test_a_unit_that_did_not_sell_goes_home_with_its_title(
     titles.receive(consignment.id)
     assert titles.release_to_seller(consignment.id).status.has_left
     assert intake.release(consignment.id).status is ConsignmentStatus.RELEASED
+
+
+def test_the_building_verifies_clean_after_a_normal_night(
+    house: sqlite3.Connection,
+) -> None:
+    """The end of a good night, asked of the system rather than of a person.
+
+    Everything the verifier looks at should pass after a unit has gone all the
+    way through, and this is the shortest statement of what "worked" means.
+    """
+    from autozest.verify import verify
+
+    run_id = run_to_the_block(house)
+    sell(house, run_id)
+    run = SaleRepository(house).run(run_id)
+    PostingService(house).post_sale(run_id)
+    PaymentService(house).receive("d-200", Money.parse("8545.00"), reference="WIRE-1")
+    titles = TitleService(house)
+    titles.expect(run.consignment_id)
+    titles.receive(run.consignment_id, issuing_state="TX")
+    ProceedsService(house).release(run.consignment_id)
+    titles.send(run.consignment_id)
+
+    result = verify(house)
+    assert result.is_usable, "\n".join(str(item) for item in result.failures)
+    assert result.failures == ()
+
+
+def test_the_verifier_notices_a_half_settled_night(house: sqlite3.Connection) -> None:
+    """A unit sold and never posted is not a failure of anything the verifier
+    checks, which is worth stating: settlement being behind is a work queue and
+    not a fault, and the doctor is careful about the difference."""
+    from autozest.verify import verify
+
+    run_id = run_to_the_block(house)
+    sell(house, run_id)
+    result = verify(house)
+    assert result.is_usable
+
+
+def test_the_verifier_stops_on_a_ledger_that_does_not_balance(
+    house: sqlite3.Connection,
+) -> None:
+    from autozest.verify import Level, verify
+
+    house.execute(
+        "INSERT INTO ledger_entry (reference, memo, source, posted_at) "
+        "VALUES ('x', 'lopsided', 'test', '2024-03-12T00:00:00+00:00')"
+    )
+    house.execute(
+        "INSERT INTO ledger_line (entry_id, account, debit_cents) VALUES (1, 'cash', 100)"
+    )
+    result = verify(house)
+    assert not result.is_usable
+    assert all(item.level is Level.STOP for item in result.blocking)

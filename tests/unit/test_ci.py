@@ -144,3 +144,28 @@ def test_every_job_that_installs_uses_the_same_two_ways() -> None:
     )
     for line in installs:
         assert line in allowed or line.startswith("run: python -m pip install build=="), line
+
+
+def test_the_command_line_job_ends_by_verifying_everything() -> None:
+    """The job builds a real sale and then runs every check against it.
+
+    A smoke test that only proves the commands exit zero proves less than one
+    that finishes by asking the system whether it is sound.
+    """
+    text = workflow_text()
+    for command in ("admin doctor", "admin verify", "admin plans", "admin sizes"):
+        assert command in text
+
+
+def test_the_verify_step_comes_after_the_work() -> None:
+    text = workflow_text()
+    assert text.index("settle post") < text.index("admin verify")
+
+
+def test_no_job_is_allowed_to_write_outside_the_runner_temp() -> None:
+    """Anything writing into the checkout would be committed by accident."""
+    for line in workflow_text().splitlines():
+        stripped = line.strip()
+        if stripped.startswith("az ") and not stripped.startswith("az --help"):
+            assert "--db" in line, line
+            assert "$RUNNER_TEMP" in line, line

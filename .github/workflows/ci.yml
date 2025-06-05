@@ -84,7 +84,7 @@ jobs:
           cache-dependency-path: pyproject.toml
       - name: install
         run: python -m pip install .
-      - name: build a sale and read it back
+      - name: build a sale, settle it, and check the whole thing over
         run: |
           set -euo pipefail
           az --db "$RUNNER_TEMP/ci.sqlite3" init
@@ -96,6 +96,11 @@ jobs:
           az --db "$RUNNER_TEMP/ci.sqlite3" settle post S-20240312
           az --db "$RUNNER_TEMP/ci.sqlite3" settle trial-balance
           az --db "$RUNNER_TEMP/ci.sqlite3" report dashboard --sale S-20240312
+          az --db "$RUNNER_TEMP/ci.sqlite3" report concentration S-20240312
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin doctor
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin verify
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin plans
+          az --db "$RUNNER_TEMP/ci.sqlite3" admin sizes
 
   audit:
     name: dependency audit

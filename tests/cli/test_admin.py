@@ -242,8 +242,9 @@ def test_the_history_prints(initialised: Invoke) -> None:
 
 
 def test_breaking_changes_since_a_version(initialised: Invoke) -> None:
-    output = initialised("admin", "history", "--since", "0.0.1").output
-    assert "0 breaking changes since 0.0.1" in output
+    output = initialised("admin", "history", "--since", "0.1.0").output
+    assert "python 3.12 is the minimum" in output
+    assert "breaking changes since 0.1.0" in output
 
 
 def test_verify_passes_on_a_fresh_database(initialised: Invoke) -> None:

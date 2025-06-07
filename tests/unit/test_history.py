@@ -17,6 +17,20 @@ def test_this_build_has_notes() -> None:
     assert current().version == __version__
 
 
+def test_the_next_version_has_its_notes_written_before_it_ships() -> None:
+    """Notes are written as the work lands, not on the day of the release."""
+    unreleased = [release for release in HISTORY if not release.is_released]
+    assert unreleased
+    assert all(release.entries > 0 for release in unreleased)
+
+
+def test_breaking_changes_are_stated_in_the_imperative() -> None:
+    for release in HISTORY:
+        for item in release.breaking:
+            assert item[:1].islower(), item
+            assert not item.endswith("."), item
+
+
 def test_every_version_says_something() -> None:
     for release in HISTORY:
         assert release.entries > 0, release.version
@@ -46,8 +60,11 @@ def test_an_unreleased_version_says_so() -> None:
 
 
 def test_breaking_changes_are_called_out_separately() -> None:
-    assert not current().has_breaking_changes
-    assert breaking_since("0.0.1") == ()
+    """The notes land as the work does, so 1.0.0 is written before it is cut."""
+    next_up = BY_VERSION["1.0.0"]
+    assert next_up.has_breaking_changes
+    assert "python 3.12 is the minimum" in next_up.breaking
+    assert breaking_since("0.1.0") == next_up.breaking
 
 
 def test_breaking_since_walks_forward_from_a_version() -> None:

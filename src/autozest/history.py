@@ -58,6 +58,35 @@ class Release:
 #: Newest first, which is how a changelog is read and how breaking_since walks.
 HISTORY: tuple[Release, ...] = (
     Release(
+        version="1.0.0",
+        released_on=None,
+        added=(
+            "az admin verify, one command that runs every check there is",
+            "az admin manual, the operator manual written from the commands",
+            "sale templates, purchase limits, dealer groups and pooled credit",
+            "bank file reconciliation, credit notes and write offs",
+            "accounting periods that close in two steps",
+            "yard spaces, keys and the gate release",
+            "per state title rules, lienholders and payoff quotes",
+        ),
+        changed=(
+            "the run sheet is one query rather than one per unit",
+            "references are issued from the highest already used, everywhere",
+            "az sale and az block are separate command groups",
+            "the schema checker looks for unindexed foreign keys",
+        ),
+        breaking=(
+            "az market guide takes --year and --band rather than positionals",
+            "python 3.12 is the minimum",
+        ),
+        fixed=(
+            "the calendar kept the timezone it was handed",
+            "the dashboard honours the date it was asked about",
+            "a mistyped date gives an error rather than a traceback",
+            "a proxy bid pays one increment over the room, not its maximum",
+        ),
+    ),
+    Release(
         version="0.1.0",
         released_on=None,
         added=(

@@ -50,3 +50,21 @@ def test_main_exits_one_when_something_fails(
     )
     assert release.main() == 1
     assert "FAIL x" in capsys.readouterr().out
+
+
+def test_the_version_is_the_one_the_notes_describe() -> None:
+    from autozest.history import current
+
+    assert current().version == __version__
+    assert current().is_released
+
+
+def test_this_is_a_one_point_release() -> None:
+    """The shape of the number is part of the promise it makes.
+
+    A one point zero says the command line and the exit statuses are an
+    interface now, and the breaking list in the notes is what changed to get
+    there.
+    """
+    major, minor, patch = (int(part) for part in __version__.split("."))
+    assert (major, minor, patch) == (1, 0, 0)

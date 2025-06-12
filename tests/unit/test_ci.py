@@ -10,6 +10,7 @@ from __future__ import annotations
 import re
 import tomllib
 from pathlib import Path
+from typing import Any
 
 ROOT = Path(__file__).resolve().parents[2]
 WORKFLOW = ROOT / ".github" / "workflows" / "ci.yml"
@@ -20,7 +21,8 @@ def workflow_text() -> str:
     return WORKFLOW.read_text("utf-8")
 
 
-def project() -> dict[str, object]:
+def project() -> Any:
+    """The parsed pyproject. Deliberately untyped: it is a document."""
     return tomllib.loads(PYPROJECT.read_text("utf-8"))
 
 
@@ -36,7 +38,7 @@ def test_every_job_the_build_needs_is_present() -> None:
 
 
 def test_the_matrix_starts_at_the_supported_minimum() -> None:
-    requires = str(project()["project"]["requires-python"])  # type: ignore[index]
+    requires = str(project()["project"]["requires-python"])
     minimum = re.sub(r"[^0-9.]", "", requires)
     versions = re.findall(r'"(3\.\d+)"', workflow_text().split("matrix:")[1])
     assert versions
@@ -44,7 +46,7 @@ def test_the_matrix_starts_at_the_supported_minimum() -> None:
 
 
 def test_the_tooling_the_workflow_runs_is_pinned() -> None:
-    dev = project()["project"]["optional-dependencies"]["dev"]  # type: ignore[index]
+    dev = project()["project"]["optional-dependencies"]["dev"]
     pinned = {entry.split("==")[0] for entry in dev if "==" in entry}
     assert {"pytest", "ruff", "mypy"} <= pinned
     assert all("==" in entry for entry in dev)
@@ -98,20 +100,20 @@ def test_the_build_tool_is_pinned_too() -> None:
 
 
 def test_the_dev_extra_carries_everything_the_workflow_runs() -> None:
-    dev = project()["project"]["optional-dependencies"]["dev"]  # type: ignore[index]
+    dev = project()["project"]["optional-dependencies"]["dev"]
     names = {entry.split("==")[0] for entry in dev}
     assert {"pytest", "pytest-cov", "coverage", "ruff", "mypy"} <= names
 
 
 def test_the_coverage_floor_is_configured_rather_than_a_flag() -> None:
     """A floor passed on a command line is a floor somebody drops from one job."""
-    coverage = project()["tool"]["coverage"]["report"]  # type: ignore[index]
+    coverage = project()["tool"]["coverage"]["report"]
     assert coverage["fail_under"] >= 90
     assert "--cov" in workflow_text()
 
 
 def test_the_build_backend_pin_matches_the_dev_toolchain() -> None:
-    build_requires = project()["build-system"]["requires"]  # type: ignore[index]
+    build_requires = project()["build-system"]["requires"]
     assert any(entry.startswith("hatchling==") for entry in build_requires)
 
 
@@ -169,3 +171,57 @@ def test_no_job_is_allowed_to_write_outside_the_runner_temp() -> None:
         if stripped.startswith("az ") and not stripped.startswith("az --help"):
             assert "--db" in line, line
             assert "$RUNNER_TEMP" in line, line
+
+
+def test_the_version_is_a_real_release_number() -> None:
+    version = str(project()["project"]["version"])
+    parts = version.split(".")
+    assert len(parts) == 3
+    assert all(part.isdigit() for part in parts), version
+
+
+def test_the_package_metadata_is_complete_enough_to_publish() -> None:
+    """Everything a wheel needs to be identifiable once it has left here."""
+    meta = project()["project"]
+    for field in ("name", "version", "description", "readme", "requires-python"):
+        assert meta.get(field), field
+    assert meta["authors"]
+    assert meta["license"]
+
+
+def test_the_entry_point_is_declared() -> None:
+    scripts = project()["project"]["scripts"]
+    assert scripts["az"] == "autozest.cli.main:main"
+
+
+def test_the_readme_the_metadata_points_at_exists() -> None:
+    readme = str(project()["project"]["readme"])
+    path = PYPROJECT.parent / readme
+    assert path.exists()
+    text = path.read_text("utf-8")
+    assert "autozest" in text
+    assert "az --db" in text
+
+
+def test_the_readme_only_shows_commands_that_exist() -> None:
+    """A readme that tells somebody to run a command that is gone is worse
+    than no readme, because they will believe it."""
+    import re
+
+    import click
+
+    from autozest.cli.main import cli
+
+    readme = (PYPROJECT.parent / str(project()["project"]["readme"])).read_text("utf-8")
+    groups = {
+        name for name, command in cli.commands.items() if isinstance(command, click.Group)
+    }
+    for match in re.finditer(r"^az .*$", readme, re.MULTILINE):
+        parts = match.group(0).split()
+        without_options = [part for part in parts[1:] if not part.startswith("-")]
+        if len(without_options) < 2 or without_options[0] not in groups:
+            continue
+        group_name, command_name = without_options[0], without_options[1]
+        group = cli.commands[group_name]
+        assert isinstance(group, click.Group)
+        assert command_name in group.commands, match.group(0)

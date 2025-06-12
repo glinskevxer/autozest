@@ -59,7 +59,7 @@ class Release:
 HISTORY: tuple[Release, ...] = (
     Release(
         version="1.0.0",
-        released_on=None,
+        released_on=date(2025, 6, 12),
         added=(
             "az admin verify, one command that runs every check there is",
             "az admin manual, the operator manual written from the commands",
@@ -88,7 +88,7 @@ HISTORY: tuple[Release, ...] = (
     ),
     Release(
         version="0.1.0",
-        released_on=None,
+        released_on=date(2024, 12, 31),
         added=(
             "consignment, intake and the gate",
             "condition reports, damage grading and the announcement set",

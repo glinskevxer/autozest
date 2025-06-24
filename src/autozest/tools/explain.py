@@ -17,7 +17,9 @@ from __future__ import annotations
 import sqlite3
 from dataclasses import dataclass
 
-from autozest.storage.db import connect_memory
+# Re-exported deliberately: the test patches it here to watch that the
+# connection this module opens for itself is closed again.
+from autozest.storage.db import connect_memory as connect_memory
 from autozest.storage.migrator import migrate
 
 #: The queries that run on a screen somebody is waiting in front of.
@@ -84,13 +86,26 @@ def plan_for(conn: sqlite3.Connection, sql: str, params: tuple[object, ...]) -> 
 
 
 def plans(conn: sqlite3.Connection | None = None) -> list[Plan]:
-    """The plan for every watched query."""
-    connection = conn
-    if connection is None:
-        connection = connect_memory()
+    """The plan for every watched query.
+
+    A connection this builds for itself is closed again. Python 3.13 raises a
+    ResourceWarning when an unclosed one is collected, and with warnings as
+    errors that surfaced as three unrelated tests failing on whichever one
+    happened to trigger the collection.
+    """
+    if conn is not None:
+        return _plans_on(conn)
+    connection = connect_memory()
+    try:
         migrate(connection)
+        return _plans_on(connection)
+    finally:
+        connection.close()
+
+
+def _plans_on(conn: sqlite3.Connection) -> list[Plan]:
     return [
-        Plan(name=name, steps=plan_for(connection, sql, params))
+        Plan(name=name, steps=plan_for(conn, sql, params))
         for name, (sql, params) in WATCHED.items()
     ]
 

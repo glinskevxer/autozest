@@ -1,5 +1,7 @@
 import sqlite3
 
+import pytest
+
 from autozest.tools.explain import WATCHED, plans
 
 
@@ -40,3 +42,40 @@ def test_a_scan_is_reported_rather_than_failed(db: sqlite3.Connection) -> None:
     scanning = Plan(name="x", steps=("SCAN lane",))
     assert not scanning.uses_an_index
     assert scanning.scans == ("SCAN lane",)
+
+
+def test_plans_closes_the_connection_it_opens(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Python 3.13 raises a ResourceWarning when an unclosed connection is
+    collected, and with warnings as errors that surfaced as three unrelated
+    tests failing on whichever one happened to trigger the collection.
+
+    Asserted by watching the close rather than by the warning, because 3.12
+    does not emit it and the test has to hold on both.
+    """
+    from autozest.tools import explain as module
+
+    made: list[sqlite3.Connection] = []
+    real = module.connect_memory
+
+    def watched() -> sqlite3.Connection:
+        conn = real()
+        made.append(conn)
+        return conn
+
+    monkeypatch.setattr(module, "connect_memory", watched)
+    module.plans()
+
+    assert len(made) == 1
+    # A closed sqlite3 connection refuses to be used, which is the only way to
+    # ask one whether it is closed. sqlite3.Connection is a C type and will not
+    # take a patched close().
+    with pytest.raises(sqlite3.ProgrammingError, match="closed database"):
+        made[0].execute("SELECT 1")
+
+
+def test_plans_does_not_close_a_connection_it_was_given(
+    db: sqlite3.Connection,
+) -> None:
+    """A caller's connection is the caller's to close."""
+    plans(db)
+    assert db.execute("SELECT 1 AS n").fetchone()["n"] == 1

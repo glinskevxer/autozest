@@ -225,3 +225,15 @@ def test_the_readme_only_shows_commands_that_exist() -> None:
         group = cli.commands[group_name]
         assert isinstance(group, click.Group)
         assert command_name in group.commands, match.group(0)
+
+
+def test_the_audit_skips_our_own_package() -> None:
+    """pip-audit --strict fails on a dependency it cannot find on PyPI.
+
+    autozest is installed from the checkout and is not published, so without
+    this the job fails on "dependency not found" rather than on anything to do
+    with security, which is a red build that teaches nobody anything.
+    """
+    text = workflow_text()
+    assert "pip_audit --strict" in text
+    assert "--skip-editable" in text

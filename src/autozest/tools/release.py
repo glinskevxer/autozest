@@ -20,6 +20,7 @@ from pathlib import Path
 
 from autozest import __version__
 from autozest.storage.db import connect_memory
+from autozest.storage.migrator import default_directory as default_migrations_directory
 from autozest.storage.migrator import load_migrations, migrate
 from autozest.tools.check_migrations import problems as migration_problems
 from autozest.tools.explain import plans
@@ -37,13 +38,23 @@ class Check:
         return f"{'ok  ' if self.passed else 'FAIL'} {self.name}: {self.detail}"
 
 
-def project_root() -> Path:
-    return Path(__file__).resolve().parents[3]
+def project_root() -> Path | None:
+    """The source checkout, when there is one.
+
+    An installed package has no checkout above it, and walking three parents
+    from site-packages lands somewhere arbitrary. Returning None says so
+    instead of pointing at a directory that happens to exist.
+    """
+    candidate = Path(__file__).resolve().parents[3]
+    return candidate if (candidate / "pyproject.toml").exists() else None
 
 
 def declared_version(root: Path | None = None) -> str | None:
-    """The version in pyproject, which has to match the package."""
-    pyproject = (root or project_root()) / "pyproject.toml"
+    """The version in pyproject, or None when running from an installed wheel."""
+    base = root or project_root()
+    if base is None:
+        return None
+    pyproject = base / "pyproject.toml"
     if not pyproject.exists():
         return None
     return str(tomllib.loads(pyproject.read_text("utf-8"))["project"]["version"])
@@ -58,7 +69,9 @@ def checks(root: Path | None = None) -> list[Check]:
         Check(
             "version",
             declared is None or declared == __version__,
-            f"package says {__version__}, pyproject says {declared}",
+            f"package says {__version__}, pyproject says {declared}"
+            if declared
+            else f"package says {__version__}, no checkout to compare against",
         )
     )
 
@@ -87,24 +100,28 @@ def checks(root: Path | None = None) -> list[Check]:
     )
     conn.close()
 
-    found.append(_packaging_check(root))
+    found.append(_packaging_check())
     return found
 
 
-def _packaging_check(root: Path | None = None) -> Check:
-    """Every migration on disk has to be inside the package directory.
+def _packaging_check() -> Check:
+    """Every migration the code loads has to be a file inside the package.
 
-    A file outside it works in every test, because the tests run from the
-    source tree, and is not in the wheel.
+    This is the check that caught itself. It used to look under a source tree,
+    which does not exist once the wheel is installed, so it reported zero sql
+    files on a package that had all of them. It asks the package where its own
+    migrations directory is now, which is the same question the loader asks
+    and the only one that means anything when installed.
     """
-    package = Path(load_migrations()[0].filename).name
-    directory = (root or project_root()) / "src" / "autozest" / "storage" / "migrations"
+    directory = default_migrations_directory()
     on_disk = sorted(path.name for path in directory.glob("*.sql"))
     expected = sorted(migration.filename for migration in load_migrations())
+    first = expected[0] if expected else "none"
     return Check(
         "migrations packaged",
-        on_disk == expected,
-        f"{len(on_disk)} sql files under the package, first is {package}",
+        bool(on_disk) and on_disk == expected,
+        f"{len(on_disk)} sql files beside the package at {directory.parent.name}, "
+        f"first is {first}",
     )
 
 

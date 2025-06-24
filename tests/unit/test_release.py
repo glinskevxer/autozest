@@ -32,7 +32,7 @@ def test_the_migrations_are_contiguous_and_packaged() -> None:
     by_name = {check.name: check for check in release.checks()}
     assert by_name["migrations numbered"].passed
     assert by_name["migrations packaged"].passed
-    assert "sql files under the package" in by_name["migrations packaged"].detail
+    assert "sql files beside the package" in by_name["migrations packaged"].detail
 
 
 def test_main_exits_zero(capsys: pytest.CaptureFixture[str]) -> None:
@@ -68,3 +68,46 @@ def test_this_is_a_one_point_release() -> None:
     """
     major, minor, patch = (int(part) for part in __version__.split("."))
     assert (major, minor, patch) == (1, 0, 0)
+
+
+def test_the_checks_pass_when_there_is_no_checkout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """This is the check that caught itself.
+
+    Installed from a wheel there is no source tree above the package, and the
+    packaging check used to look for one and report zero sql files on a package
+    that had all of them. It asks the package where its own migrations live
+    now, which is the same question the loader asks.
+    """
+    monkeypatch.setattr(release, "project_root", lambda: None)
+    results = release.checks()
+    failed = [check for check in results if not check.passed]
+    assert failed == [], "\n".join(str(check) for check in failed)
+
+    packaged = next(check for check in results if check.name == "migrations packaged")
+    assert "29 sql files" in packaged.detail or "sql files beside" in packaged.detail
+
+    version = next(check for check in results if check.name == "version")
+    assert "no checkout to compare against" in version.detail
+
+
+def test_project_root_is_none_when_there_is_no_pyproject_above_us(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.setattr(release, "__file__", str(tmp_path / "a" / "b" / "c" / "release.py"))
+    assert release.project_root() is None
+
+
+def test_the_packaging_check_reads_the_package_not_a_source_tree() -> None:
+    """It has to find the migrations through the package itself.
+
+    A path built from the checkout works in every test and is wrong the moment
+    the wheel is installed, which is exactly how this shipped broken.
+    """
+    from autozest.storage.migrator import default_directory
+
+    packaged = next(check for check in release.checks() if check.name == "migrations packaged")
+    assert packaged.passed
+    assert default_directory().name == "migrations"
+    assert (default_directory() / "001_core.sql").exists()

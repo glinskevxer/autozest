@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -20,7 +21,7 @@ VIN = "1HGCM82633A004352"
 
 
 @pytest.fixture()
-def ctx(tmp_path: Path) -> Context:
+def ctx(tmp_path: Path) -> Iterator[Context]:
     path = tmp_path / "sale.sqlite3"
     conn = connect(path)
     migrate(conn)
@@ -52,7 +53,11 @@ def ctx(tmp_path: Path) -> Context:
         intake.consignments.save_status(intake.consignments.get(unit.id), status)
     sales.add_run(sale.code, "A", unit.id, Light.GREEN)
     conn.close()
-    return Context.build(None, str(path))
+    built = Context.build(None, str(path))
+    yield built
+    # The lookups below open a connection through the context. In a real run
+    # click closes it on the way out, and here nothing does unless this does.
+    built.close()
 
 
 def test_a_reference_finds_the_consignment(ctx: Context) -> None:

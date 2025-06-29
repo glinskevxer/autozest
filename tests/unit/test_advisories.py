@@ -70,4 +70,4 @@ def test_the_workflow_runs_an_audit() -> None:
         Path(__file__).resolve().parents[2] / ".github" / "workflows" / "ci.yml"
     ).read_text("utf-8")
     assert "pip-audit" in workflow
-    assert "pip_audit --strict" in workflow
+    assert "pip_audit --skip-editable" in workflow

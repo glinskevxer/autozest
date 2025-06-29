@@ -1,4 +1,4 @@
-"""Fixtures every layer of the suite shares.
+"""Fixtures every layer of the suite shares, and the connection leak watch.
 
 The sale floor fixture lives here rather than beside the block tests because
 the reporting and settlement suites want the same set up, and copying it into
@@ -24,6 +24,33 @@ from autozest.money import Money
 from autozest.storage.db import connect_memory
 from autozest.storage.migrator import migrate
 from autozest.vin import Vin
+from tests.support.leaks import ConnectionWatch
+
+_watch = ConnectionWatch()
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    _watch.install()
+
+
+def pytest_runtest_setup(item: pytest.Item) -> None:
+    _watch.entering(item.nodeid)
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
+    """Fail the run if anything is still holding a connection.
+
+    This runs after the session scoped fixtures have torn down, so a connection
+    still open here is one nobody is going to close. Reported as a failed exit
+    status rather than raised, because there is no test left to attach it to and
+    an exception out of this hook is printed as an internal error.
+    """
+    _watch.entering("<session teardown>")
+    report = _watch.report()
+    _watch.uninstall()
+    if report:
+        session.exitstatus = 1
+        print("\n" + report)
 
 
 @pytest.fixture(scope="session")

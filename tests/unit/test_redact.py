@@ -81,9 +81,15 @@ def test_two_redactions_with_different_salts_do_not_line_up(
     second = tmp_path / "two.sqlite3"
     redact(db, first, salt="one")
     redact(db, second, salt="two")
-    left = connect(first, create=False).execute("SELECT name FROM account").fetchone()
-    right = connect(second, create=False).execute("SELECT name FROM account").fetchone()
-    assert left["name"] != right["name"]
+    one = connect(first, create=False)
+    other = connect(second, create=False)
+    try:
+        left = one.execute("SELECT name FROM account").fetchone()
+        right = other.execute("SELECT name FROM account").fetchone()
+        assert left["name"] != right["name"]
+    finally:
+        one.close()
+        other.close()
 
 
 def test_money_is_never_touched(db: sqlite3.Connection, tmp_path: Path) -> None:

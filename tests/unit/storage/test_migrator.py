@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -17,8 +18,10 @@ from autozest.storage.migrator import (
 
 
 @pytest.fixture()
-def conn() -> sqlite3.Connection:
-    return connect_memory()
+def conn() -> Iterator[sqlite3.Connection]:
+    conn = connect_memory()
+    yield conn
+    conn.close()
 
 
 @pytest.fixture()

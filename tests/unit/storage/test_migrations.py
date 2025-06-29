@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 
 import pytest
 
@@ -8,10 +9,11 @@ from autozest.tools.check_migrations import main, problems
 
 
 @pytest.fixture()
-def db() -> sqlite3.Connection:
+def db() -> Iterator[sqlite3.Connection]:
     conn = connect_memory()
     migrate(conn)
-    return conn
+    yield conn
+    conn.close()
 
 
 def test_the_shipped_migrations_apply_to_an_empty_database(db: sqlite3.Connection) -> None:

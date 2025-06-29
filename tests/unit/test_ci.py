@@ -228,12 +228,14 @@ def test_the_readme_only_shows_commands_that_exist() -> None:
 
 
 def test_the_audit_skips_our_own_package() -> None:
-    """pip-audit --strict fails on a dependency it cannot find on PyPI.
+    """The audit runs over the dependencies and not over autozest itself.
 
-    autozest is installed from the checkout and is not published, so without
-    this the job fails on "dependency not found" rather than on anything to do
-    with security, which is a red build that teaches nobody anything.
+    autozest is installed from the checkout and is not published, so auditing it
+    can only report that it was not found, which is a red build that teaches
+    nobody anything. Skipping it is also why the job cannot use --strict, since
+    --strict fails on exactly the thing that is being skipped on purpose.
     """
     text = workflow_text()
-    assert "pip_audit --strict" in text
+    assert "pip_audit --skip-editable" in text
+    assert "python -m pip_audit --strict" not in text
     assert "--skip-editable" in text

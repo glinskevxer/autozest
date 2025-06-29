@@ -1,4 +1,5 @@
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -16,7 +17,7 @@ from autozest.storage.db import (
 
 
 @pytest.fixture()
-def conn() -> sqlite3.Connection:
+def conn() -> Iterator[sqlite3.Connection]:
     connection = connect_memory()
     connection.execute("CREATE TABLE lane (code TEXT PRIMARY KEY, capacity INTEGER)")
     connection.execute(
@@ -24,7 +25,8 @@ def conn() -> sqlite3.Connection:
         "REFERENCES lane(code), position INTEGER NOT NULL)"
     )
     connection.execute("INSERT INTO lane VALUES ('A', 120)")
-    return connection
+    yield connection
+    connection.close()
 
 
 def test_rows_come_back_as_dicts_keyed_by_column(conn: sqlite3.Connection) -> None:
@@ -132,8 +134,11 @@ def test_a_file_database_ends_up_in_wal(tmp_path: Path) -> None:
 
 
 def test_an_in_memory_database_is_left_in_its_own_mode() -> None:
-    conn = connect_memory()
-    assert conn.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "memory"
+    memory = connect_memory()
+    try:
+        assert memory.execute("PRAGMA journal_mode").fetchone()["journal_mode"] == "memory"
+    finally:
+        memory.close()
 
 
 def test_the_per_connection_pragmas_are_applied_every_time(tmp_path: Path) -> None:

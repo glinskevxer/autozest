@@ -117,10 +117,20 @@ jobs:
       - name: audit the installed dependencies
         # --skip-editable leaves out autozest itself. It is installed from this
         # checkout and is not on PyPI, so auditing it can only ever report that
-        # it was not found. Not --strict: --strict fails the run on anything
-        # skipped, which is exactly the line above, so the two contradict each
-        # other. A real advisory against a real dependency still exits non zero.
-        run: python -m pip_audit --skip-editable --progress-spinner off
+        # it was not found. Not --strict either: --strict fails on anything
+        # skipped, which is exactly the line above, so the two argue.
+        #
+        # pip-audit reports and the next step decides. A new advisory against a
+        # pin is not something a build gets to act on by itself, and a job that
+        # goes red on somebody else's publishing schedule is a job that gets
+        # switched off. What fails the build is an acceptance in
+        # autozest.tools.advisories that has run past its review date.
+        run: |
+          python -m pip_audit --skip-editable --progress-spinner off \
+            --format json --output audit.json || true
+          cat audit.json || true
+      - name: check what the audit found against what we accept
+        run: python -m autozest.tools.advisories --from-audit audit.json
 
   docs:
     name: the manual and the card build

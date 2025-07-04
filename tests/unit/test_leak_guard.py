@@ -128,6 +128,12 @@ def test_an_origin_is_relative_to_the_checkout(watch: ConnectionWatch) -> None:
     assert "tests/unit/test_leak_guard.py:" in origin
 
 
+# This one leaks on purpose, so on 3.13 it trips the very ResourceWarning the
+# guard exists to prevent, and warnings are errors here. Silenced for this test
+# alone rather than in pyproject, where it would cover the whole suite and
+# quietly undo the 3.13 leg.
+@pytest.mark.filterwarnings("ignore::ResourceWarning")
+@pytest.mark.filterwarnings("ignore::pytest.PytestUnraisableExceptionWarning")
 def test_a_leak_survives_its_connection_being_collected(watch: ConnectionWatch) -> None:
     """The entry outlives the object, because a leak is not a live connection.
 
